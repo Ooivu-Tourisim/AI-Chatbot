@@ -1,0 +1,46 @@
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Node & Dependencies
+node_modules/
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment & Secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
