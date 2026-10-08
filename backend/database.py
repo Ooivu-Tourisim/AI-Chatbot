@@ -407,6 +407,14 @@ def init_db():
                 )
             conn.commit()
 
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(packages)")}
+        if "icon_name" not in columns:
+            conn.execute("ALTER TABLE packages ADD COLUMN icon_name TEXT NOT NULL DEFAULT 'compass'")
+        icons = {"NOC-JAF-01": "heritage", "NOC-ISL-02": "island", "NOC-CUL-03": "food", "NOC-WEL-04": "wellness", "NOC-NAT-05": "wildlife", "NOC-ROM-06": "romance"}
+        for package_id, icon in icons.items():
+            conn.execute("UPDATE packages SET icon_name = ? WHERE id = ? AND icon_name = 'compass'", (icon, package_id))
+        conn.commit()
+
 
 def get_all_packages() -> List[Dict[str, Any]]:
     """Return all active packages as parsed Python dictionaries."""
@@ -423,6 +431,7 @@ def get_all_packages() -> List[Dict[str, Any]]:
                     "title": r["title"],
                     "tagline": r["tagline"],
                     "category": r["category"],
+                    "icon_name": r["icon_name"],
                     "duration_days": r["duration_days"],
                     "duration_nights": r["duration_nights"],
                     "price_lkr": r["price_lkr"],
@@ -452,6 +461,7 @@ def get_package_by_id(package_id: str) -> Optional[Dict[str, Any]]:
             "title": row["title"],
             "tagline": row["tagline"],
             "category": row["category"],
+            "icon_name": row["icon_name"],
             "duration_days": row["duration_days"],
             "duration_nights": row["duration_nights"],
             "price_lkr": row["price_lkr"],

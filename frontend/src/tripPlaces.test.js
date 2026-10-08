@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import { dayPlaces, directionsUrl, routeStops, groupNearbyDays } from "./tripPlaces.js";
+
+const pkg = { destinations: ["Jaffna City"] };
+const a = dayPlaces({ activities: "Depart Jaffna; visit Point Pedro then Keerimalai." }, pkg);
+assert.deepEqual(a.map(p => p.id), ["jaffna", "pedro", "keerimalai"]);
+assert.deepEqual(dayPlaces({activities: "Visit Talaimannar."}, pkg).map(p => p.id), ["talaimannar"]);
+const b = dayPlaces({activities: "Visit Delft Island."}, pkg);
+assert.equal(b[0].island, true);
+assert.deepEqual(dayPlaces({activities:"Drive to KKD jetty; ferry to Delft Island."}, pkg).map(p => p.id), ["jetty", "delft"]);
+assert.deepEqual(dayPlaces({activities:"Chunnakam cooking class preparing Jaffna curry powder."}, pkg).map(p => p.id), ["chunnakam"]);
+assert.deepEqual(dayPlaces({title:"Jaffna to Chundikulam Lagoon", activities:"Depart south for Chundikulam."}, pkg).map(p => p.id), ["jaffna", "chundikulam"]);
+assert.equal(dayPlaces({activities: "Relax at your accommodation."}, pkg)[0].approximate, true);
+assert.deepEqual(dayPlaces({activities: "Unknown attraction"}, {destinations:["Unknown place"]}), []);
+const stops = routeStops([{places:a}, {places:[a.at(-1)]}, {places:b}]);
+assert.deepEqual(stops.map(p => p.id), ["jaffna", "pedro", "keerimalai", "delft"]);
+assert.equal(stops.at(-1).tripDay, 3);
+const reversed = routeStops([{places:b}, {places:a}]);
+assert.equal(reversed[0].id, "delft");
+assert.equal(routeStops([{places:a}]).length, 3);
+const url = new URL(directionsUrl(stops));
+assert.equal(url.searchParams.get("destination"), `${b[0].lat},${b[0].lng}`);
+assert.equal(url.searchParams.has("travelmode"), false);
+assert.equal(new URL(directionsUrl(a)).searchParams.get("travelmode"), "driving");
+console.log("Trip place mapping, route order, ferry and Maps URL checks passed.");
+
+const locationA = {id:"area-a",lat:9.66,lng:80.01};
+const locationB = {id:"area-b",lat:8.95,lng:79.88};
+const routeDays = [{title:"A1",places:[locationA]},{title:"B1",places:[locationB]},{title:"A2",places:[locationA]}];
+assert.deepEqual(groupNearbyDays(routeDays).map(d=>d.title),["A1","A2","B1"]);
+assert.deepEqual(routeDays.map(d=>d.title),["A1","B1","A2"]);
+const unknownDay = {title:"Unknown",places:[]};
+assert.deepEqual(groupNearbyDays([routeDays[0],unknownDay,routeDays[1],routeDays[2]]).map(d=>d.title),["A1","Unknown","A2","B1"]);
+assert.deepEqual(groupNearbyDays([...routeDays,{title:"Departure",places:[locationA]}]).map(d=>d.title),["A1","A2","B1","Departure"]);
+assert.equal(groupNearbyDays([]).length,0);
+console.log("Nearby-day grouping tests passed");

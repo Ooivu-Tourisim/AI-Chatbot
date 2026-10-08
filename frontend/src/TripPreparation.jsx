@@ -1,0 +1,12 @@
+export default function TripPreparation({ value, onChange }) {
+  const update = (key, next) => onChange({ ...value, [key]: next });
+  return <fieldset className="trip-preparation"><legend>Food & stay preparation</legend><p>Does anyone traveling have allergies or need preparations before arrival?</p>
+    <label>What type of food do you prefer?<select className="bp-input" required value={value.diet || ""} onChange={e => update("diet", e.target.value)}><option value="">Choose your food preference</option><option value="vegetarian">Vegetarian</option><option value="non_vegetarian">Non-vegetarian</option><option value="vegan">Vegan</option><option value="other">Other — discuss with the team</option><option value="no_preference">No preference</option></select></label>
+    <label>Food allergies or dietary needs<select className="bp-input" required value={value.food_status} onChange={e => update("food_status", e.target.value)}><option value="">Choose an answer</option><option value="none">None</option><option value="needs">Yes — add details</option><option value="private">Discuss privately with the team</option></select></label>
+    {value.food_status === "needs" && <label>What should the food team prepare for?<textarea className="bp-input" required maxLength={500} placeholder="Allergens, cross-contact concerns, or dietary preferences" value={value.food_details} onChange={e => update("food_details", e.target.value)} /></label>}
+    <label>Stay, accessibility or emergency preparations<select className="bp-input" required value={value.stay_status} onChange={e => update("stay_status", e.target.value)}><option value="">Choose an answer</option><option value="none">None</option><option value="needs">Yes — add details</option><option value="private">Discuss privately with the team</option></select></label>
+    {value.stay_status === "needs" && <label>What should the stay team arrange before arrival?<textarea className="bp-input" required maxLength={500} placeholder="Step-free access, medication storage, or an agreed emergency arrangement" value={value.stay_details} onChange={e => update("stay_details", e.target.value)} /></label>}
+    <small>Share only what the team needs to prepare. Arrangements must be confirmed with the food and stay providers before travel.</small>
+  </fieldset>;
+}
+export const emptyPreparation = { diet: "", food_status: "", food_details: "", stay_status: "", stay_details: "" };
