@@ -22,7 +22,7 @@ aura/
         ├── AuraChat.jsx the widget  ← this is the part you keep
         └── AuraChat.css scoped styles for the widget
 ```
-
+clear
 ## Run it
 
 **Terminal 1 — backend**

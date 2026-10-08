@@ -1,26 +1,33 @@
 /* Styles for the placeholder host page only. Delete with App.jsx. */
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
-  color: #0e3a36;
-  background: #f5f7f4;
+  min-height: 100vh;
+  font-family: "Raleway", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  color: #26211e;
+  background: #ffffff;
 }
 
 .host {
   max-width: 62ch;
   margin: 0 auto;
   padding: 80px 24px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .host h1 {
-  font-size: 30px;
-  margin: 0 0 16px;
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 1.15;
+  margin: 0 0 18px;
+  color: #26211e;
 }
 
 .host-note {
-  color: #5c7a76;
+  color: #26211e;
   font-size: 14.5px;
-  border-left: 3px solid #c9892b;
-  padding-left: 14px;
+  background: #f5f3f1;
+  border-left: 4px solid #d98a55;
+  border-radius: 8px;
+  padding: 14px 18px;
 }

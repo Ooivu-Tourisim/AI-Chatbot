@@ -6,6 +6,7 @@ server prepends the system prompt grounded in the verified package database.
 
 import json
 import os
+import threading
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -16,13 +17,21 @@ from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel, Field
 
+import builder
+import builder_ai
+import currency
 import database
+import draft
 from prompt import build_greeting, build_system_prompt
 
 load_dotenv()
 
 # Initialize the SQLite package database
 database.init_db()
+builder.init()
+
+# Warm the exchange-rate cache so the first draft with a foreign-currency budget is not slowed by it.
+threading.Thread(target=currency.get_rates, daemon=True).start()
 
 PLATFORM_NAME = os.getenv("PLATFORM_NAME", "North of Ceylon")
 RAW_MODEL = os.getenv("GEMINI_MODEL") or os.getenv("ANTHROPIC_MODEL", "gemini-3.5-flash-lite")
@@ -50,7 +59,8 @@ app.add_middleware(
 def get_current_system_prompt() -> str:
     """Fetch the latest packages from the database and generate the grounded prompt."""
     catalog = database.get_packages_summary_for_prompt()
-    return build_system_prompt(PLATFORM_NAME, catalog)
+    rates = currency.build_currency_section(database.get_all_packages())
+    return build_system_prompt(PLATFORM_NAME, catalog + "\n\n" + rates)
 
 
 class Message(BaseModel):
@@ -60,6 +70,76 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message] = Field(min_length=1, max_length=40)
+
+
+class DayRef(BaseModel):
+    package_id: str = Field(max_length=40)
+    day: int = Field(ge=1, le=30)
+
+
+class DraftRequest(BaseModel):
+    request: str = Field(min_length=3, max_length=6000)
+    language: str = Field(default="English", max_length=40)
+
+
+class OptimizeRequest(BaseModel):
+    days: list[DayRef] = Field(min_length=1, max_length=30)
+    budget_lkr: int = Field(gt=0, le=100_000_000)
+
+
+class ChecklistRequest(BaseModel):
+    days: list[DayRef] = Field(min_length=1, max_length=30)
+    month: str = Field(default="", max_length=30)
+    language: str = Field(default="English", max_length=40)
+
+
+class QuoteRequest(BaseModel):
+    package_id: str = Field(max_length=40)
+    travelers: int = Field(ge=1, le=30)
+    selections: dict[str, str | list[str]] = Field(default_factory=dict)
+
+
+class BookingRequest(QuoteRequest):
+    customer_name: str = Field(min_length=2, max_length=120)
+    customer_email: str = Field(max_length=200)
+    customer_phone: str = Field(default="", max_length=40)
+    travel_date: str = Field(default="", max_length=20)
+    notes: str = Field(default="", max_length=1000)
+    confirmed: bool = False  # explicit customer confirmation is mandatory
+
+
+class BuilderDraftRequest(BaseModel):
+    request: str = Field(min_length=3, max_length=6000)
+    language: str = Field(default="English", max_length=40)
+
+
+class AssistRequest(QuoteRequest):
+    message: str = Field(min_length=1, max_length=1000)
+    budget_lkr: int | None = Field(default=None, gt=0, le=100_000_000)
+    language: str = Field(default="English", max_length=40)
+
+
+class SavingsRequest(QuoteRequest):
+    budget_lkr: int = Field(gt=0, le=100_000_000)
+
+
+DRAFT_TIMEOUT_MS = 13000  # whole AI call (incl. one retry) stays inside the 15 s draft target
+
+AI_DOWN = "AI suggestions are temporarily unavailable. You can continue browsing, customizing, and booking manually."
+
+
+def ai_call(fn, *args):
+    """Run an AI-backed step; any failure becomes a 503 the UI shows as a non-blocking notice."""
+    if not client:
+        raise HTTPException(status_code=503, detail=AI_DOWN)
+    try:
+        return fn(client, MODEL, *args)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=503, detail=AI_DOWN)  # malformed model output counts as AI failure
+    except (LookupError, ValueError):
+        raise  # caller handled: not an AI outage
+    except Exception:
+        raise HTTPException(status_code=503, detail=AI_DOWN)
 
 
 def sse(event: dict) -> str:
@@ -85,6 +165,84 @@ def get_package(package_id: str):
     if not pkg:
         raise HTTPException(status_code=404, detail=f"Package '{package_id}' not found.")
     return pkg
+
+
+@app.get("/api/builder/{package_id}")
+def builder_options(package_id: str, lang: str = "en"):
+    """Package + its selectable option groups (hotel, meals, transport, extras)."""
+    data = builder.get_builder(package_id, lang)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Package '{package_id}' not found.")
+    return data
+
+
+@app.post("/api/builder/draft")
+def builder_draft(req: BuilderDraftRequest):
+    """Natural-language request -> a pre-filled, editable, UNBOOKED Package Builder draft."""
+    try:
+        return ai_call(builder_ai.create_draft, req.request, req.language, DRAFT_TIMEOUT_MS)
+    except LookupError:
+        raise HTTPException(status_code=422, detail="no_match")
+
+
+@app.post("/api/builder/assist")
+def builder_assist(req: AssistRequest):
+    """AI help while editing: answers questions and may PROPOSE option changes (never applies them)."""
+    try:
+        return ai_call(builder_ai.assist, req.package_id, req.travelers, req.selections, req.budget_lkr, req.message, req.language, DRAFT_TIMEOUT_MS)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/api/builder/savings")
+def builder_savings(req: SavingsRequest):
+    """Exact-saving option swaps when over budget. Code only, so it works without the AI."""
+    try:
+        return builder_ai.savings(req.package_id, req.travelers, req.selections, req.budget_lkr)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/api/builder/quote")
+def builder_quote(req: QuoteRequest):
+    """Live price for a set of selections. Pure code, so it works even when the AI is down."""
+    try:
+        return builder.quote(req.package_id, req.travelers, req.selections)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/api/builder/requests")
+def builder_request(req: BookingRequest):
+    """Submit a booking REQUEST. Requires explicit confirmation; takes no payment and books nothing."""
+    if not req.confirmed:
+        raise HTTPException(status_code=422, detail="confirmation_required")
+    try:
+        q = builder.quote(req.package_id, req.travelers, req.selections)
+        ref = builder.create_request(q, req.customer_name, req.customer_email, req.customer_phone, req.travel_date, req.notes)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return {"reference": ref, "status": "requested", "total_lkr": q["total_lkr"]}
+
+
+@app.post("/api/draft")
+def create_draft(req: DraftRequest):
+    """Natural-language request -> editable, UNBOOKED draft built only from catalogue days."""
+    result = ai_call(draft.build_draft, req.request, req.language, DRAFT_TIMEOUT_MS)
+    if not result["days"]:
+        raise HTTPException(status_code=422, detail="I couldn't match that to our verified catalogue. Try describing your interests, trip length or budget, or use the Package Builder.")
+    return result
+
+
+@app.post("/api/optimize")
+def optimize(req: OptimizeRequest):
+    """Deterministic budget substitutions (no AI needed, so it works even if the AI is down)."""
+    return draft.optimise([d.model_dump() for d in req.days], req.budget_lkr)
+
+
+@app.post("/api/checklist")
+def checklist(req: ChecklistRequest):
+    return ai_call(draft.build_checklist, [d.model_dump() for d in req.days], req.month, req.language, DRAFT_TIMEOUT_MS)
 
 
 @app.post("/api/chat")
@@ -115,6 +273,7 @@ def chat(req: ChatRequest):
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     max_output_tokens=MAX_TOKENS,
+                    tools=[builder_ai.budget_check_tool],
                 ),
             )
             for chunk in chat_session.send_message_stream(latest_user_message):
