@@ -1,0 +1,166 @@
+/* Professional skin for the chat page.
+   Neutral surfaces, hairline borders, 8px corners, one accent (brand purple) used for actions only.
+   No decorative gradients, glows, shadows or colour (one flat scrim keeps text on photos readable). Loaded after AuraChat.css so it wins. */
+
+.aura,
+.aura .aura-main {
+  --aura-ink: #1d2127;
+  --aura-ink-soft: #5d646c;
+  --aura-muted: #7a8189;
+  --aura-line: #dcdfe3;
+  --aura-tint: #f3f4f5;
+  --aura-shell: #f7f7f5;
+  --aura-surface: #ffffff;
+  --aura-purple: #5f0f85;
+  --aura-btn: #5f0f85;
+  --aura-btn-hover: #4b0b69;
+  --aura-orange: #8a6a45;
+  --aura-orange-deep: #6b4f2e;
+  --aura-orange-soft: #f6f3ee;
+  --aura-orange-mid: #e6e0d6;
+  --aura-radius: 8px;
+}
+
+.aura.aura-page,
+.aura .aura-main,
+.aura .aura-dock,
+.aura .aura-scroll.is-chat,
+.aura .aura-scroll.is-empty { background: var(--aura-shell); }
+
+.aura { color: var(--aura-ink); }
+
+/* ───────── Sidebar ───────── */
+.aura .aura-rail { width: 224px; background: #fff; border-right: 1px solid var(--aura-line); padding: 20px 12px; gap: 2px; }
+.aura .aura-logo { width: 96px; margin: 0 0 24px 10px; }
+.aura .aura-rail-item { padding: 9px 12px; border-radius: 6px; border-left: 0; font-size: 14px; font-weight: 500; color: var(--aura-ink-soft) !important; }
+.aura .aura-rail-item:hover:not(:disabled) { background: var(--aura-tint); color: var(--aura-ink) !important; }
+.aura .aura-rail-icon, .aura .aura-rail-item.is-active .aura-rail-icon { color: var(--aura-muted); }
+.aura .aura-rail-create { justify-content: flex-start; margin-bottom: 12px; padding: 10px 12px; color: #fff !important; background: var(--aura-btn) !important; border-radius: 8px; font-weight: 600; }
+.aura .aura-rail-create:hover:not(:disabled) { background: var(--aura-btn-hover) !important; }
+.aura .aura-rail-create .aura-rail-icon { color: #fff; }
+.aura .aura-rail-back { margin-top: auto; border-top: 1px solid var(--aura-line); border-radius: 0; padding-top: 14px; }
+
+/* ───────── Top bar ───────── */
+.aura .aura-top { padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--aura-line); }
+.aura .aura-tab { font-family: inherit; font-size: 15px; font-weight: 600; color: var(--aura-ink); }
+.aura .aura-tab::before { display: none; }
+.aura .aura-tab-add { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--aura-line) !important; color: var(--aura-ink-soft) !important; background: #fff !important; }
+.aura .aura-tab-add:hover { background: var(--aura-tint) !important; }
+.aura .aura-top-links { gap: 8px; }
+.aura .aura-top-links button,
+.aura .aura-lang { height: 36px; padding: 0 12px; font-size: 13px; font-weight: 600; color: var(--aura-ink) !important; background: #fff !important; border: 1px solid var(--aura-line) !important; border-radius: 6px; }
+.aura .aura-top-links button:hover:not(:disabled),
+.aura .aura-lang:hover { background: var(--aura-tint) !important; border-color: #c4c8cd !important; }
+.aura .aura-top-links button:disabled { color: var(--aura-muted) !important; background: var(--aura-tint) !important; }
+.aura .aura-top-links .aura-draft-open { color: #fff !important; background: var(--aura-btn) !important; border-color: var(--aura-btn) !important; }
+.aura .aura-top-links .aura-draft-open:hover:not(:disabled) { background: var(--aura-btn-hover) !important; border-color: var(--aura-btn-hover) !important; }
+.aura .aura-top-links .aura-close { width: 36px; padding: 0; }
+.aura .aura-lang { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; }
+.aura .aura-lang select { font-size: 13px; font-weight: 600; }
+
+/* ───────── Home ───────── */
+.aura .aura-scroll.is-empty .aura-headline { margin-top: 0; font-size: clamp(26px, 4.2vh, 38px); font-weight: 600; letter-spacing: -0.01em; color: var(--aura-ink); }
+.aura .aura-scroll.is-empty .aura-sub { margin-top: 4px; font-size: 14.5px; color: var(--aura-ink-soft); }
+.aura .aura-scroll.is-empty .aura-cards { max-width: 880px; gap: 14px; }
+.aura .aura-scroll.is-empty .aura-photo-card { border-radius: 8px; box-shadow: none; background: #20242a; }
+.aura .aura-photo-card::after,
+.aura-photo-card::after { background: linear-gradient(transparent 40%, rgba(16, 18, 22, 0.78)); }
+.aura .aura-scroll.is-empty .aura-photo-card .aura-card-title { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; text-shadow: none; }
+.aura .aura-card-title .aura-eva { color: #fff; margin: 0; vertical-align: baseline; }
+.aura .aura-photo-card .aura-card-explore { border-radius: 6px; border-color: rgba(255, 255, 255, 0.75) !important; font-size: 11px; font-weight: 600; }
+.aura .aura-photo-card:focus-within { outline: 2px solid var(--aura-purple); outline-offset: 2px; }
+.aura .aura-fine { font-size: 11.5px; color: var(--aura-muted); }
+
+/* ───────── Conversation ───────── */
+.aura .aura-scroll.is-chat .aura-thread { max-width: 820px; padding: 28px 20px 24px; gap: 14px; }
+.aura .aura-scroll.is-chat .aura-avatar { display: none; }
+.aura .aura-scroll.is-chat .aura-msg-assistant { display: block; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.aura .aura-bubble { display: block; width: 100%; padding: 16px 20px 12px; background: #fff; border: 1px solid var(--aura-line); border-radius: 8px; }
+.aura .aura-bubble-name { margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--aura-muted); }
+.aura .aura-scroll.is-chat .aura-msg-user { max-width: 72%; padding: 11px 16px; color: var(--aura-ink); background: #e9ebed; border: 0; border-radius: 8px; }
+.aura .aura-md { color: var(--aura-ink); line-height: 1.65; }
+.aura .aura-md h1, .aura .aura-md h2, .aura .aura-md h3, .aura .aura-md h4 { font-family: inherit; font-weight: 700; color: var(--aura-ink); }
+.aura .aura-md h3 { margin: 14px 0 8px; padding-bottom: 6px; font-size: 17px; border-bottom: 1px solid var(--aura-line); }
+.aura .aura-md h4 { font-size: 15px; }
+.aura .aura-md strong { color: var(--aura-ink); }
+.aura .aura-md li::marker { color: var(--aura-muted); }
+.aura .aura-md table { border-radius: 6px; }
+.aura .aura-md th { background: var(--aura-tint); }
+.aura .aura-md code { background: var(--aura-tint); }
+.aura .aura-md a { color: var(--aura-purple); }
+.aura .aura-time, .aura .aura-msg-user .aura-time { margin-top: 8px; font-size: 11.5px; font-weight: 500; color: var(--aura-muted); }
+.aura .aura-caret { width: 6px; height: 6px; background: var(--aura-muted); }
+.aura-typing i { background: var(--aura-muted); }
+.aura .message-tools button.message-icon { color: var(--aura-muted) !important; }
+.aura .message-tools button.message-icon:hover, .aura .message-tools button.message-icon[aria-pressed=true] { color: var(--aura-purple) !important; background: var(--aura-tint) !important; }
+
+.aura .aura-replies { padding-left: 0; gap: 8px; }
+.aura .aura-replies button { padding: 7px 14px; font-size: 13px; font-weight: 500; color: var(--aura-ink) !important; background: #fff !important; border: 1px solid var(--aura-line) !important; border-radius: 6px; }
+.aura .aura-replies button:hover { background: var(--aura-tint) !important; border-color: #c4c8cd !important; color: var(--aura-ink) !important; }
+
+.aura .aura-ready { margin-left: 0; padding: 16px 18px; background: #fff; border: 1px solid var(--aura-line); border-left: 3px solid var(--aura-purple); border-radius: 8px; }
+.aura .aura-ready strong { font-family: inherit; font-size: 15px; font-weight: 700; }
+.aura .aura-ready button { border-radius: 8px; font-weight: 600; }
+.aura .aura-error { background: #fff; color: #8a2a1f; border: 1px solid #e3c3bd; border-left: 3px solid #b2392b; border-radius: 6px; }
+
+/* ───────── Composer ───────── */
+.aura .aura-dock { padding: 8px 20px 16px; }
+.aura .aura-compose { padding: 12px 14px 10px 16px; background: #fff; border: 1px solid var(--aura-line); border-radius: 10px; box-shadow: none; }
+.aura .aura-compose:focus-within { border-color: var(--aura-purple); box-shadow: 0 0 0 3px rgba(95, 15, 133, 0.1); }
+.aura .aura-compose textarea { color: var(--aura-ink); font-size: 15px; }
+.aura .aura-compose textarea::placeholder { color: var(--aura-muted); }
+.aura .aura-send { width: 40px; height: 40px; color: #fff !important; background: var(--aura-btn) !important; border: 0 !important; border-radius: 8px; }
+.aura .aura-send:hover:not(:disabled) { background: var(--aura-btn-hover) !important; }
+.aura .aura-send:disabled { color: var(--aura-muted) !important; background: var(--aura-tint) !important; }
+.aura .aura-mic { color: var(--aura-ink-soft); background: transparent; border-radius: 8px; }
+.aura .aura-mic:hover { background: var(--aura-tint); }
+.aura .aura-currency-btn { height: 36px; color: var(--aura-ink) !important; background: #fff !important; border: 1px solid var(--aura-line) !important; border-radius: 6px; font-weight: 600; }
+.aura .aura-currency-btn.has-value { background: var(--aura-tint) !important; border-color: #c4c8cd !important; }
+.aura .aura-currency-icon { color: var(--aura-ink-soft); }
+.aura .aura-currency-dropdown { border: 1px solid var(--aura-line); border-radius: 8px; box-shadow: 0 6px 20px rgba(20, 22, 26, 0.12); }
+.aura .aura-currency-search-wrap { background: var(--aura-tint); }
+.aura .aura-currency-option { border-radius: 6px; }
+.aura .aura-currency-option.is-selected { background: var(--aura-tint); }
+
+/* ───────── Closed-state launcher ───────── */
+.aura .aura-launch { padding: 10px 16px 10px 10px !important; color: #fff !important; background: var(--aura-btn) !important; border: 0 !important; border-radius: 10px !important; box-shadow: 0 2px 8px rgba(20, 22, 26, 0.2) !important; }
+.aura .aura-launch:hover { background: var(--aura-btn-hover) !important; }
+.aura .aura-launch .aura-launch-badge { width: 36px; height: 36px; background: rgba(255, 255, 255, 0.14) !important; border: 0; border-radius: 8px; }
+.aura .aura-launch .aura-launch-icon { color: #fff !important; }
+.aura .aura-launch .aura-launch-label { font-family: inherit; font-size: 14.5px; font-weight: 700; color: #fff !important; }
+.aura .aura-launch .aura-launch-hint { font-size: 11.5px; font-weight: 500; color: rgba(255, 255, 255, 0.75) !important; }
+.aura .aura-launch .aura-launch-arrow { color: rgba(255, 255, 255, 0.8) !important; }
+.aura .aura-launch-dot { display: none; }
+.aura .aura-quick { background: #fff; border: 1px solid var(--aura-line); border-radius: 10px; }
+.aura .aura-quick:focus-within { border-color: var(--aura-purple); }
+.aura .aura-quick-send { border-radius: 6px; background: var(--aura-btn); }
+
+@media (max-width: 720px) {
+  .aura .aura-top { padding: 10px 12px; }
+  .aura .aura-scroll.is-chat .aura-msg-user { max-width: 88%; }
+}
+/* OOIVU logo orange: sampled from the brand mark. */
+.aura .aura-launch .aura-launch-icon,
+.aura .aura-launch .aura-launch-arrow,
+.aura .planner-ai-launch .aura-eva { color:#fc6600 !important; }
+.aura .aura-launch .aura-launch-badge { background:transparent !important; border:0; }
+.aura .aura-launch-dot { display:none; }
+.aura .aura-launch { border-radius:999px !important; padding:10px 16px !important; }
+
+/* Stylish chat launcher: dark pill like the reference, orange spark, soft glow. */
+.aura .aura-launch {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 8px 18px 8px 8px !important;
+  background: linear-gradient(180deg, #2a2b2d, #1c1d1f) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  transition: transform .2s ease, box-shadow .2s ease !important;
+}
+.aura .aura-launch:hover { background: linear-gradient(180deg, #323336, #222325) !important; transform: translateY(-2px); box-shadow: 0 14px 34px rgba(252, 102, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important; }
+.aura .aura-launch .aura-launch-badge { width: 40px; height: 40px; display: grid; place-items: center; background: rgba(252, 102, 0, 0.14) !important; border: 1px solid rgba(252, 102, 0, 0.35); border-radius: 50%; }
+.aura .aura-launch .aura-launch-icon { color: #fc6600 !important; }
+.aura .aura-launch .aura-launch-label { color: #fff !important; font-size: 14.5px; font-weight: 700; letter-spacing: .01em; }
+.aura .aura-launch .aura-launch-hint { color: rgba(255, 255, 255, 0.55) !important; font-size: 11.5px; }
+.aura .aura-launch .aura-launch-arrow { color: #fc6600 !important; transition: transform .2s ease; }
+.aura .aura-launch:hover .aura-launch-arrow { transform: translateX(3px); }

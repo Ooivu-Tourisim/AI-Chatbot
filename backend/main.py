@@ -7,6 +7,7 @@ server prepends the system prompt grounded in the verified package database.
 import json
 import os
 import threading
+import time
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -22,6 +23,8 @@ import builder_ai
 import currency
 import database
 import draft
+import rag
+import translate
 from prompt import build_greeting, build_system_prompt
 
 load_dotenv()
@@ -56,9 +59,9 @@ app.add_middleware(
 )
 
 
-def get_current_system_prompt() -> str:
+def get_current_system_prompt(query: str = "", history: list[str] | None = None) -> str:
     """Fetch the latest packages from the database and generate the grounded prompt."""
-    catalog = database.get_packages_summary_for_prompt()
+    catalog = rag.build_context(query, history)
     rates = currency.build_currency_section(database.get_all_packages())
     return build_system_prompt(PLATFORM_NAME, catalog + "\n\n" + rates)
 
@@ -99,13 +102,42 @@ class QuoteRequest(BaseModel):
     selections: dict[str, str | list[str]] = Field(default_factory=dict)
 
 
+class TripPreparation(BaseModel):
+    diet: Literal["vegetarian", "non_vegetarian", "vegan", "other", "no_preference"] = "no_preference"
+    food_status: Literal["none", "needs", "private"]
+    food_details: str = Field(default="", max_length=500)
+    stay_status: Literal["none", "needs", "private"]
+    stay_details: str = Field(default="", max_length=500)
+
+
+def preparation_notes(req):
+    prep = req.preparation
+    if prep is None:
+        return req.notes
+    for status, details in [(prep.food_status, prep.food_details), (prep.stay_status, prep.stay_details)]:
+        if status == "needs" and not details.strip():
+            raise HTTPException(status_code=422, detail="Please describe the preparation needed.")
+    return req.notes + "\n\nFOOD & STAY PREPARATION (needs provider confirmation)\nFood preference: " + prep.diet + "\n" + "\n".join(
+        f"{label}: {status}" + (f" — {details.strip()}" if status == "needs" else "")
+        for label, status, details in [("Food", prep.food_status, prep.food_details), ("Stay / emergency", prep.stay_status, prep.stay_details)])
+
+
 class BookingRequest(QuoteRequest):
+    preparation: TripPreparation | None = None
     customer_name: str = Field(min_length=2, max_length=120)
     customer_email: str = Field(max_length=200)
     customer_phone: str = Field(default="", max_length=40)
     travel_date: str = Field(default="", max_length=20)
     notes: str = Field(default="", max_length=1000)
     confirmed: bool = False  # explicit customer confirmation is mandatory
+
+
+class CustomQuoteRequest(QuoteRequest):
+    days: list[DayRef] = Field(min_length=1, max_length=30)
+
+
+class CustomBookingRequest(BookingRequest):
+    days: list[DayRef] = Field(min_length=1, max_length=30)
 
 
 class BuilderDraftRequest(BaseModel):
@@ -156,6 +188,69 @@ def greeting():
 def list_packages():
     """Return all verified packages directly from the SQLite database."""
     return database.get_all_packages()
+
+
+class TranslateRequest(BaseModel):
+    language: str = Field(default="English", max_length=40)
+    package_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+@app.post("/api/translate/packages")
+def translate_packages(req: TranslateRequest):
+    """Package text in the traveler's language: {package_id: translated fields}. English is returned as-is (empty)."""
+    if req.language.strip().lower() in ("english", "en"):
+        return {}
+    if not client:
+        raise HTTPException(status_code=503, detail=AI_DOWN)
+    ids = [i for i in dict.fromkeys(req.package_ids) if database.get_package_by_id(i)]
+    return translate.translate_many(client, MODEL, ids, req.language, 30000)
+
+
+@app.get("/api/currencies")
+def exchange_rates():
+    rates = currency.get_rates()
+    return {"rates": rates or {"LKR": 1}, "updated": currency._cache["updated"],
+            "available": bool(rates), "stale": bool(rates) and time.time() - currency._cache["fetched_at"] >= currency.CACHE_SECONDS,
+            "source": "open.er-api.com"}
+
+
+def custom_quote(req):
+    refs = [d.model_dump() for d in req.days]
+    days, dropped = draft.hydrate(refs)
+    if dropped:
+        raise ValueError("unknown_itinerary_day")
+    if len({(d["package_id"], d["day"]) for d in days}) != len(days):
+        raise ValueError("duplicate_itinerary_day")
+    q = builder.quote(req.package_id, req.travelers, req.selections,
+                      base_lkr=draft.total_lkr(days), nights=max(len(days) - 1, 0))
+    if q["total_lkr"] <= 0:
+        raise ValueError("invalid_custom_total")
+    q["lines"][0]["label"] = "Custom itinerary (indicative)"
+    q.update(days=days, indicative=True, nights=max(len(days) - 1, 0))
+    return q
+
+
+@app.post("/api/builder/custom/quote")
+def custom_builder_quote(req: CustomQuoteRequest):
+    try:
+        return custom_quote(req)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/api/builder/custom/requests")
+def custom_builder_request(req: CustomBookingRequest):
+    if not req.confirmed:
+        raise HTTPException(status_code=422, detail="confirmation_required")
+    try:
+        q = custom_quote(req)
+        # Persist the ordered itinerary alongside options for the team to review.
+        q["selections"] = {**q["selections"], "itinerary": [d.model_dump() for d in req.days]}
+        ref = builder.create_request(q, req.customer_name, req.customer_email,
+                                     req.customer_phone, req.travel_date, preparation_notes(req))
+        return {"reference": ref, "status": "requested", "total_lkr": q["total_lkr"], "indicative": True}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @app.get("/api/packages/{package_id}")
@@ -219,7 +314,7 @@ def builder_request(req: BookingRequest):
         raise HTTPException(status_code=422, detail="confirmation_required")
     try:
         q = builder.quote(req.package_id, req.travelers, req.selections)
-        ref = builder.create_request(q, req.customer_name, req.customer_email, req.customer_phone, req.travel_date, req.notes)
+        ref = builder.create_request(q, req.customer_name, req.customer_email, req.customer_phone, req.travel_date, preparation_notes(req))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     return {"reference": ref, "status": "requested", "total_lkr": q["total_lkr"]}
@@ -253,7 +348,9 @@ def chat(req: ChatRequest):
         return StreamingResponse(no_key_stream(), media_type="text/event-stream")
 
     # Dynamic grounded system prompt with verified database packages
-    system_instruction = get_current_system_prompt()
+    system_instruction = get_current_system_prompt(
+        req.messages[-1].content, [m.content for m in req.messages[:-1]][-4:]
+    )
 
     # Map previous turns into Gemini Content objects
     history = [

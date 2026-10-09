@@ -1,3 +1,5 @@
+import TravelDate from "./TravelDate.jsx";
+import TripPreparation, { emptyPreparation } from "./TripPreparation.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import { BUILDER_I18N } from "./builderStrings.js";
@@ -5,9 +7,15 @@ import { AI_I18N } from "./builderAiStrings.js";
 import { DRAFT_I18N } from "./draftStrings.js";
 import { PAGE_I18N } from "./builderPageStrings.js";
 import "./BuilderPage.css";
+import "./theme-builder.css";
+import CustomTrip from "./CustomTrip.jsx";
+import ChatActions from "./ChatActions.jsx";
+import usePackageText from "./usePackageText.js";
+import { deleteTurn } from "./chatHistory.js";
+import TripMap from "./TripMap.jsx";
+import { dayPlaces } from "./tripPlaces.js";
+import useCurrency, { CurrencyControl } from "./useCurrency.jsx";
 
-const fmt = (n) => `LKR ${Math.round(n).toLocaleString("en-US")}`;
-const signed = (n) => `${n >= 0 ? "+" : "−"}${fmt(Math.abs(n))}`;
 const DRAFT_TIMEOUT_MS = 15000; // progress bar length
 const ABORT_MS = 17000; // network headroom beyond the server's own ~13 s limit
 
@@ -16,7 +24,7 @@ const COVER = {
   WEL: "/images/cards/delft.jpg", NAT: "/images/cards/wildlife.jpg", ROM: "/images/cards/romantic.jpg",
 };
 const cover = (id) => COVER[id?.split("-")[1]] || "/images/cards/budget.jpg";
-const GROUP_ICON = { hotel: "🏨", meals: "🍽️", transport: "🚐", extras: "✨" };
+const GROUP_ICON = { hotel: "bed", meals: "food", transport: "vehicle", extras: "guide" };
 
 async function call(apiBase, path, body, signal) {
   const res = await fetch(`${apiBase}${path}`, {
@@ -30,7 +38,11 @@ async function call(apiBase, path, body, signal) {
   return data;
 }
 
-export default function BuilderPage({ apiBase, lang, language, initialPackage, request, onClose }) {
+export default function BuilderPage({ apiBase, lang, language, initialPackage, request, currency = "LKR", onClose }) {
+  const [custom, setCustom] = useState(!request && !initialPackage);
+  const pricing = useCurrency(apiBase, currency);
+  const fmt = pricing.fmt;
+  const signed = n => `${n >= 0 ? "+" : "−"}${fmt(Math.abs(n))}`;
   const t = BUILDER_I18N[lang] || BUILDER_I18N.en;
   const a = AI_I18N[lang] || AI_I18N.en;
   const d = DRAFT_I18N[lang] || DRAFT_I18N.en;
@@ -44,6 +56,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
   const [quote, setQuote] = useState(null);
   const [quoteErr, setQuoteErr] = useState(false);
   const [modal, setModal] = useState(null); // null | details | done
+  const [preparation, setPreparation] = useState(emptyPreparation);
   const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "", date: "", ok: false });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -57,8 +70,9 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
   const [budget, setBudget] = useState("");
   const [savings, setSavings] = useState(null);
 
-  const [chatOpen, setChatOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1180);
+  const [chatOpen, setChatOpen] = useState(false);
   const [chat, setChat] = useState([]); // { role: "aura"|"user", text, proposal?, applied? }
+  const [deletedChat, setDeletedChat] = useState(null);
   const [ask, setAsk] = useState("");
   const [asking, setAsking] = useState(false);
   const [askErr, setAskErr] = useState("");
@@ -128,6 +142,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
   useEffect(() => {
     if (!data || !Object.keys(sel).length) return;
+    setQuote(null);
     let live = true;
     call(apiBase, "/api/builder/quote", { package_id: pkgId, travelers, selections: sel })
       .then((q) => { if (live) { setQuote(q); setQuoteErr(false); } })
@@ -153,10 +168,11 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
     }));
   }
 
-  async function sendAsk(text) {
+  async function sendAsk(text, previous = chat) {
     const message = (text ?? ask).trim();
     if (!message || asking || !quote) return;
-    setChat((c) => [...c, { role: "user", text: message }]);
+    setDeletedChat(null);
+    setChat([...previous, { role: "user", text: message }]);
     setAsk("");
     setAsking(true);
     setAskErr("");
@@ -218,7 +234,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
       const r = await call(apiBase, "/api/builder/requests", {
         package_id: pkgId, travelers, selections: sel,
         customer_name: form.name, customer_email: form.email, customer_phone: form.phone,
-        travel_date: form.date, notes: form.notes, confirmed: form.ok,
+        travel_date: form.date, notes: form.notes, confirmed: form.ok, preparation,
       });
       setRef(r.reference);
       setModal("done");
@@ -229,10 +245,12 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
     }
   }
 
-  const unit = (o) => (o.price_lkr === 0 ? t.included : `+${fmt(o.price_lkr)} ${o.price_type === "per_person_night" ? t.perNight : o.price_type === "per_person" ? t.perPerson : t.flat}`);
+  const unit = (o) => (o.price_lkr === 0 ? t.included : `${o.price_lkr < 0 ? "Save" : "Add"} ${fmt(Math.abs(o.price_lkr))} ${o.price_type === "per_person_night" ? t.perNight : o.price_type === "per_person" ? t.perPerson : t.flat}`);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const over = quote && budgetLkr && quote.total_lkr > budgetLkr ? quote.total_lkr - budgetLkr : 0;
   const pkg = data?.package;
+  const localize = usePackageText(apiBase, language, pkg ? [pkg.id] : (packages || []).map((x) => x.id));
+  const view = pkg ? localize(pkg) : null;
   const chosenLabels = data
     ? data.groups.map((g) => {
         const v = sel[g.id];
@@ -254,7 +272,8 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
         <button className="bp-x" onClick={onClose} aria-label={t.close}><Icon name="close" size={22} /></button>
       </header>
 
-      <div className="bp-body">
+      <nav className="builder-modes" aria-label="Builder mode"><button className={custom ? "is-active" : ""} onClick={() => setCustom(true)}>Build my own trip</button><button className={!custom ? "is-active" : ""} onClick={() => setCustom(false)}>Customize a package</button><span>Choose experiences, personalize, review</span></nav>
+      {custom ? <div className="bp-scroll"><CustomTrip initialPreparation={preparation} apiBase={apiBase} currency={currency} language={language} onBack={() => setCustom(false)} /></div> : <div className="bp-body">
       <div className="bp-scroll">
         {phase === "drafting" && (
           <div className="bp-loading" role="status">
@@ -277,6 +296,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
         {phase === "idle" && !pkgId && (
           <section className="bp-choose">
+            <CurrencyControl pricing={pricing} />
             <h2>{t.choose}</h2>
             {packages === null && <p className="bp-muted">{t.loading}</p>}
             <div className="bp-grid">
@@ -284,7 +304,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                 <button key={pk.id} className="bp-pkg" onClick={() => setPkgId(pk.id)}>
                   <img src={cover(pk.id)} alt="" loading="lazy" />
                   <span className="bp-pkg-body">
-                    <strong>{pk.title}</strong>
+                    <strong><Icon name={pk.icon_name || "compass"} size={20} /> {localize(pk).title}</strong>
                     <small>{t.meta(pk.duration_days, pk.duration_nights)} · {fmt(pk.price_lkr)}</small>
                   </span>
                 </button>
@@ -297,19 +317,22 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
           <>
             <section className="bp-hero" style={{ backgroundImage: `url(${cover(pkg.id)})` }}>
               <div className="bp-hero-in">
-                <span className="bp-chip">{pkg.category}</span>
-                <h1>{pkg.title}</h1>
-                <p>{pkg.tagline}</p>
+                <span className="bp-chip">{view.category}</span>
+                <h1>{view.title}</h1>
+                <p>{view.tagline}</p>
                 <div className="bp-chips">
-                  <span>🗓 {t.meta(pkg.duration_days, pkg.duration_nights)}</span>
-                  <span>📍 {pkg.destinations.join(" · ")}</span>
-                  <span>🏷 {pkg.id}</span>
+                  <span><Icon name="calendar" size={16} />{t.meta(pkg.duration_days, pkg.duration_nights)}</span>
+                  <span><Icon name="map" size={16} />{view.destinations.join(" · ")}</span>
+                  <span>{pkg.id}</span>
                 </div>
               </div>
             </section>
 
             <div className="bp-layout">
               <main className="bp-main">
+                <div className="bp-map-top">
+                  <TripMap days={pkg.itinerary.map(day => ({...day, places:dayPlaces(day, pkg)}))} onFocusDay={() => {}} />
+                </div>
                 {ai && (
                   <div className="bp-ai">
                     <span className="bp-ai-ico"><Icon name="flash" size={18} /></span>
@@ -328,6 +351,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 <section className="bp-card">
                   <h3>{p.tripDetails}</h3>
+                  <CurrencyControl pricing={pricing} />
                   <div className="bp-two">
                     <div>
                       <span className="bp-label">{t.travelers}</span>
@@ -339,7 +363,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                     </div>
                     <label>
                       <span className="bp-label">{t.date} {t.dateOpt}</span>
-                      <input className="bp-input" type="date" value={form.date} onChange={set("date")} />
+                      <TravelDate label="Preferred travel date" value={form.date} onChange={set("date")} />
                     </label>
                   </div>
                   <p className="bp-muted">{t.basis}</p>
@@ -347,7 +371,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 {data.groups.map((g) => (
                   <section key={g.id} className="bp-card">
-                    <h3><span aria-hidden="true">{GROUP_ICON[g.id] || "•"}</span> {g.label}{g.multi && <small> · {t.multiHint}</small>}</h3>
+                    <h3><Icon name={GROUP_ICON[g.id] || "compass"} size={18} /> {g.label}{g.multi && <small> · {t.multiHint}</small>}</h3>
                     <div className="bp-tiles">
                       {g.options.map((o) => {
                         const v = sel[g.id];
@@ -367,8 +391,9 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 <section className="bp-card">
                   <h3>{p.itinerary}</h3>
+                  <details><summary>View {pkg.duration_days} days & inclusions</summary>
                   <ol className="bp-days">
-                    {pkg.itinerary.map((day) => (
+                    {view.itinerary.map((day) => (
                       <li key={day.day}>
                         <span className="bp-day-n">{day.day}</span>
                         <div><strong>{day.title}</strong><p>{day.activities}</p></div>
@@ -376,11 +401,12 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                     ))}
                   </ol>
                   <h4>{p.included}</h4>
-                  <ul className="bp-incl">{pkg.inclusions.map((x) => <li key={x}>{x}</li>)}</ul>
+                  <ul className="bp-incl">{view.inclusions.map((x) => <li key={x}>{x}</li>)}</ul>
+                  </details>
                 </section>
 
                 <section className="bp-card">
-                  <h3>🎒 {a.packTitle}</h3>
+                  <h3><Icon name="briefcase" size={18} /> {a.packTitle}</h3>
                   {!list && (
                     <div className="bp-two">
                       <label>
@@ -492,13 +518,17 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
             <section className="bp-chat" aria-label={p.chatTitle}>
               <header>
                 <span className="aura-avatar" aria-hidden="true">A</span>
-                <div><strong>{p.chatTitle}</strong><small>● Online</small></div>
+                <div><strong>{p.chatTitle}</strong><small>Online</small></div>
                 <button onClick={() => setChatOpen(false)} aria-label={t.close}><Icon name="close" size={18} /></button>
               </header>
+              {deletedChat && <div className="builder-undo"><button disabled={asking} onClick={() => { setChat(deletedChat); setDeletedChat(null); }}>Undo deletion</button></div>}
               <div className="bp-chat-log">
                 {chat.map((m, i) => (
                   <div key={i} className={`bp-msg bp-msg-${m.role}`}>
                     <p>{m.text}</p>
+                    <ChatActions text={m.text} editable={m.role === "user"} disabled={asking} maxLength={1000}
+                      onEdit={text => sendAsk(text, chat.slice(0, i))}
+                      onDelete={() => { setDeletedChat(chat); setChat(deleteTurn(chat, i)); setAskErr(""); }} />
                     {m.proposal && (
                       <div className="bp-prop">
                         <strong>{a.proposal(fmt(m.proposal.total_lkr), signed(m.proposal.delta_lkr))}</strong>
@@ -518,20 +548,20 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
               </div>
               <form className="bp-chat-form" onSubmit={(e) => { e.preventDefault(); sendAsk(); }}>
                 <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={p.chatPh} maxLength={1000} />
-                <button type="submit" disabled={asking || !ask.trim()} aria-label={p.chatSend}><Icon name="arrow-upward" size={18} /></button>
+                <button type="submit" disabled={asking || !ask.trim()} aria-label={p.chatSend}><Icon name="paper-plane" size={18} /></button>
               </form>
             </section>
           )}
         </>
       )}
 
-      </div>
+      </div>}
 
       {modal && quote && (
         <div className="bp-modal" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
           <div className="bp-dialog">
             {modal === "details" && (
-              <form onSubmit={submit}>
+              <form onSubmit={submit}><TripPreparation value={preparation} onChange={setPreparation} />
                 <h3>{t.yourDetails}</h3>
                 <label><span className="bp-label">{t.name}</span><input className="bp-input" required minLength={2} value={form.name} onChange={set("name")} autoComplete="name" /></label>
                 <label><span className="bp-label">{t.email}</span><input className="bp-input" required type="email" value={form.email} onChange={set("email")} autoComplete="email" /></label>
@@ -548,7 +578,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
             )}
             {modal === "done" && (
               <div>
-                <h3>✓ {t.doneTitle}</h3>
+                <h3>{t.doneTitle}</h3>
                 <p>{t.doneText(ref)}</p>
                 <button className="bp-btn" onClick={onClose}>{p.backChat}</button>
               </div>

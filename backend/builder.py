@@ -122,12 +122,19 @@ def init() -> None:
                 for o in g["options"]:
                     sort += 1
                     conn.execute(
-                        "INSERT INTO package_options VALUES (?,?,?,?,?,?,?,?,?,?,?) "
+                        "INSERT INTO package_options (package_id, group_id, option_id, is_multi, is_required, is_default, price_lkr, price_type, group_label, label, sort) VALUES (?,?,?,?,?,?,?,?,?,?,?) "
                         "ON CONFLICT(package_id, group_id, option_id) DO UPDATE SET sort = excluded.sort",
                         (pkg["id"], g["id"], o["id"], int(g["multi"]), int(g["required"]),
                          int(o.get("default", False)), o["price"], o["type"],
                          json.dumps(g["label"], ensure_ascii=False), json.dumps(o["label"], ensure_ascii=False), sort),
                     )
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(package_options)")}
+        if "icon_name" not in columns:
+            conn.execute("ALTER TABLE package_options ADD COLUMN icon_name TEXT NOT NULL DEFAULT 'sparkles'")
+        for group, icon in {"hotel": "bed", "meals": "food", "transport": "vehicle"}.items():
+            conn.execute("UPDATE package_options SET icon_name = ? WHERE group_id = ? AND icon_name = 'sparkles'", (icon, group))
+        for option, icon in {"guide": "guide", "photo": "camera"}.items():
+            conn.execute("UPDATE package_options SET icon_name = ? WHERE group_id = 'extras' AND option_id = ? AND icon_name = 'sparkles'", (icon, option))
         conn.commit()
 
 
@@ -149,11 +156,11 @@ def get_builder(package_id: str, lang: str = "en") -> dict[str, Any] | None:
             "label": json.loads(r["group_label"]).get(lang), "options": [],
         })
         g["options"].append({
-            "id": r["option_id"], "label": json.loads(r["label"]).get(lang),
+            "id": r["option_id"], "icon_name": r["icon_name"], "label": json.loads(r["label"]).get(lang),
             "price_lkr": r["price_lkr"], "price_type": r["price_type"], "default": bool(r["is_default"]),
         })
     return {
-        "package": {k: pkg[k] for k in ("id", "title", "tagline", "category", "duration_days", "duration_nights", "price_lkr", "destinations", "highlights", "itinerary", "inclusions", "exclusions", "best_for")},
+        "package": {k: pkg[k] for k in ("id", "title", "tagline", "category", "icon_name", "duration_days", "duration_nights", "price_lkr", "destinations", "highlights", "itinerary", "inclusions", "exclusions", "best_for")},
         "price_basis": BASE_PRICE_BASIS,
         "groups": list(groups.values()),
     }
@@ -167,7 +174,7 @@ def _amount(price: int, ptype: str, travelers: int, nights: int) -> int:
     return price
 
 
-def quote(package_id: str, travelers: int, selections: dict[str, Any]) -> dict[str, Any]:
+def quote(package_id: str, travelers: int, selections: dict[str, Any], *, base_lkr: int | None = None, nights: int | None = None) -> dict[str, Any]:
     """Validate the selections and price them in code. Raises ValueError on bad input."""
     pkg = database.get_package_by_id(package_id)
     if not pkg:
@@ -177,7 +184,8 @@ def quote(package_id: str, travelers: int, selections: dict[str, Any]) -> dict[s
     for r in rows:
         by_group.setdefault(r["group_id"], []).append(r)
 
-    base = pkg["price_lkr"] * travelers if BASE_PRICE_BASIS == "per_person" else pkg["price_lkr"]
+    base_price = pkg["price_lkr"] if base_lkr is None else base_lkr
+    base = base_price * travelers if BASE_PRICE_BASIS == "per_person" else base_price
     lines = [{"kind": "base", "label": pkg["title"], "amount_lkr": base}]
     chosen: dict[str, list[str]] = {}
 
@@ -187,14 +195,14 @@ def quote(package_id: str, travelers: int, selections: dict[str, Any]) -> dict[s
         if not ids and opts[0]["is_required"]:
             ids = [o["option_id"] for o in opts if o["is_default"]][:1]
         valid = {o["option_id"]: o for o in opts}
-        if any(i not in valid for i in ids) or (not opts[0]["is_multi"] and len(ids) > 1):
+        if len(set(ids)) != len(ids) or any(i not in valid for i in ids) or (not opts[0]["is_multi"] and len(ids) > 1):
             raise ValueError("bad_selection")
         if opts[0]["is_required"] and not ids:
             raise ValueError("missing_selection")
         chosen[gid] = ids
         for i in ids:
             o = valid[i]
-            amt = _amount(o["price_lkr"], o["price_type"], travelers, pkg["duration_nights"])
+            amt = _amount(o["price_lkr"], o["price_type"], travelers, pkg["duration_nights"] if nights is None else nights)
             if amt:
                 lines.append({"kind": "option", "group": gid, "option": i,
                               "label": json.loads(o["label"])["en"], "amount_lkr": amt})
