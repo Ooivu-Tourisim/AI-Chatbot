@@ -2,16 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { createReplySpeaker } from "./replySpeaker.js";
 import Icon from "./Icon.jsx";
 import { recordSpeech } from "./recordSpeech";
-export default function VoiceConversation({ language, reply, busy, onSend, apiBase, lang = "en" }) {
-  const [active, setActive] = useState(false), [status, setStatus] = useState(""), [voices, setVoices] = useState([]), [voice, setVoice] = useState("");
+export default function VoiceConversation({ language, reply, busy, onSend, apiBase, lang = "en", inputLocale }) {
+  const [active, setActive] = useState(false), [status, setStatus] = useState("");
   const rec = useRef(null), enabled = useRef(false), handled = useRef(null), locale = useRef(language), generation = useRef(0);
   const spoken = useRef({ key:null, offset:0, speaker:null });
   const latest = useRef({ onSend, busy }); latest.current = { onSend, busy, reply };
   function stop() { enabled.current = false; generation.current++; spoken.current.speaker?.stop(); setActive(false); rec.current?.abort(); rec.current = null; window.speechSynthesis?.cancel(); setStatus(""); }
+  useEffect(() => () => stop(), []);
   useEffect(() => {
-    const update = () => setVoices(window.speechSynthesis?.getVoices() || []);
-    update(); window.speechSynthesis?.addEventListener("voiceschanged", update);
-    return () => { stop(); window.speechSynthesis?.removeEventListener("voiceschanged", update); };
+    window.addEventListener("aura-conversation-stop", stop);
+    return () => window.removeEventListener("aura-conversation-stop", stop);
   }, []);
   async function listen() {
     if (!enabled.current || latest.current.busy) return;
@@ -22,15 +22,16 @@ export default function VoiceConversation({ language, reply, busy, onSend, apiBa
         rec.current = null; locale.current = result.locale || language;
         setStatus(`Detected ${result.language}. Aura is thinking…`);
         latest.current.onSend(result.text, undefined, result.language_code);
-      }, error => { if (id === generation.current) { stop(); setStatus(error.message); } }, message => { if (id === generation.current) setStatus(message); });
+      }, error => { if (id === generation.current) { stop(); setStatus(error.message); } }, message => { if (id === generation.current) setStatus(message); }, inputLocale);
       if (id !== generation.current) session.abort(); else rec.current = session;
     } catch (error) { if (id === generation.current) { stop(); setStatus(error.message); } }
   }
   useEffect(() => {
+    if (active && reply?.time !== handled.current && reply?.input_method === "text") { stop(); return; }
     if (!active || !reply?.content || handled.current === reply.time) return;
     if (spoken.current.key !== reply.time) {
       spoken.current.speaker?.stop();
-      spoken.current = { key:reply.time, offset:0, speaker:createReplySpeaker(apiBase, reply.language_code || locale.current, voice) };
+      spoken.current = { key:reply.time, offset:0, speaker:createReplySpeaker(apiBase, reply.language_code || locale.current) };
     }
     const current = spoken.current;
     current.speaker.setLanguage(reply.language_code || locale.current);
@@ -50,7 +51,6 @@ export default function VoiceConversation({ language, reply, busy, onSend, apiBa
   return <div className="voice-conversation">
     <button className={`voice-talk ${active ? "is-active" : ""}`} type="button" disabled={busy && !active} onClick={() => { if (active) { stop(); return; } handled.current = reply?.time; enabled.current = true; setActive(true); listen(); }}><Icon name={active ? "close" : "sound"} size={18} />{active ? copy.stop : copy.talk}</button>
     {active && <button className="voice-finish" type="button" onClick={() => rec.current?.stop()}>{copy.finish}</button>}
-    <details className="voice-settings"><summary aria-label={copy.settings} title={copy.settings}><Icon name="settings" size={17} /></summary><div className="voice-settings-panel"><label>{copy.voice}<select aria-label={copy.voice} value={voice} disabled={active} onChange={e => setVoice(e.target.value)}><option value="">{copy.auto}</option>{voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}</select></label></div></details>
     {status && <span className="voice-conversation-status" role="status">{status}</span>}
   </div>;
 }

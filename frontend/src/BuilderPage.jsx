@@ -40,11 +40,12 @@ async function call(apiBase, path, body, signal) {
   return data;
 }
 
-export default function BuilderPage({ apiBase, lang, initialPackage, request, currency = "LKR", onClose }) {
-  // Builder language follows the explicit selection, independently of chat/STT detection.
+export default function BuilderPage({ apiBase, lang, contentLanguage, initialPackage, initialView, tripBrief, request, currency = "LKR", onClose }) {
+  // `lang` is the chat's reply language when supported, else the UI selection; database text
+  // (packages, itineraries, AI notes) is translated into `contentLanguage` when one was detected.
   const selectedLanguage = LANGS.find(item => item.code === lang) || LANGS.find(item => item.code === "en");
-  const language = selectedLanguage.name;
-  const [custom, setCustom] = useState(!request && !initialPackage);
+  const language = contentLanguage || selectedLanguage.name;
+  const [custom, setCustom] = useState(initialView === "custom" || (initialView !== "package" && !request && !initialPackage));
   const pricing = useCurrency(apiBase, currency);
   const fmt = pricing.fmt;
   const signed = n => `${n >= 0 ? "+" : "−"}${fmt(Math.abs(n))}`;
@@ -278,7 +279,7 @@ export default function BuilderPage({ apiBase, lang, initialPackage, request, cu
       </header>
 
       <nav className="builder-modes" aria-label="Builder mode"><button className={custom ? "is-active" : ""} onClick={() => setCustom(true)}>{plannerText(lang, "Build my own trip")}</button><button className={!custom ? "is-active" : ""} onClick={() => setCustom(false)}>{plannerText(lang, "Customize a package")}</button><span>{plannerText(lang, "Choose experiences, personalize, review")}</span></nav>
-      {custom ? <div className="bp-scroll"><CustomTrip initialPreparation={preparation} apiBase={apiBase} currency={currency} lang={selectedLanguage.code} language={language} onBack={() => setCustom(false)} /></div> : <div className="bp-body">
+      {custom ? <div className="bp-scroll"><CustomTrip initialBrief={tripBrief} initialPreparation={preparation} apiBase={apiBase} currency={currency} lang={selectedLanguage.code} language={language} onBack={() => setCustom(false)} /></div> : <div className="bp-body">
       <div className="bp-scroll">
         {phase === "drafting" && (
           <div className="bp-loading" role="status">

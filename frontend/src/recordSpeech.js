@@ -1,6 +1,10 @@
 // Capture original audio so transcription can detect language without a fixed locale.
-export async function recordSpeech(apiBase, onResult, onError, onStatus) {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+import { transcribeRecording } from "./transcribeRecording.js";
+export async function recordSpeech(apiBase, onResult, onError, onStatus, locale) {
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    throw new Error("Voice input requires a supported browser on HTTPS or localhost. You can still type your message.");
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   const mimeType = ["audio/webm", "audio/mp4", "audio/ogg"].find(t => MediaRecorder.isTypeSupported(t));
   if (!mimeType) { stream.getTracks().forEach(t => t.stop()); throw new Error("Audio recording is unavailable in this browser."); }
   const recorder = new MediaRecorder(stream, { mimeType });
@@ -21,9 +25,9 @@ export async function recordSpeech(apiBase, onResult, onError, onStatus) {
         const reader = new FileReader(); reader.onerror = reject;
         reader.onload = () => resolve(reader.result.split(",")[1]); reader.readAsDataURL(blob);
       });
-      const response = await fetch(`${apiBase}/api/transcribe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ audio, mime_type: mimeType }), signal: controller.signal });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || "Transcription failed.");
+      const result = await transcribeRecording(apiBase, { audio, mime_type: mimeType, locale: locale || undefined }, {
+        signal: controller.signal, onRetry: () => { if (!cancelled) onStatus("Voice connection interrupted. Reconnecting…"); },
+      });
       if (!result.text?.trim()) throw new Error("No clear speech detected. Please try again.");
       if (!cancelled) onResult(result);
     } catch (error) { if (!cancelled) onError(error); }

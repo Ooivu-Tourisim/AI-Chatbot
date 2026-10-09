@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplySpeaker } from './replySpeaker.js';
-test('voice replies speak streamed text in the detected language', async () => {
- const spoken=[];
- globalThis.window={speechSynthesis:{getVoices:()=>[{lang:'ko-KR',voiceURI:'korean'}],cancel(){},speak(u){spoken.push(u);queueMicrotask(()=>u.onend());}},dispatchEvent(){}};
- globalThis.SpeechSynthesisUtterance=class {constructor(text){this.text=text;}};
- const speaker=createReplySpeaker('', 'ko');
- speaker.feed('안녕하세요! '); speaker.feed('여행을 계획해요.'); await speaker.end();
- assert.equal(spoken.map(u=>u.text).join(' '),'안녕하세요! 여행을 계획해요.');
- assert.ok(spoken.every(u=>u.lang==='ko'));
+test('available local voices never replace the consistent server voice', async () => {
+ const calls=[];
+ globalThis.window={speechSynthesis:{getVoices:()=>[{lang:'ko-KR',voiceURI:'korean'}],cancel(){},speak(){throw new Error('Local voice must not be used');}},dispatchEvent(){}};
+ const oldFetch=globalThis.fetch;
+ globalThis.fetch=async (_url,request)=>{calls.push(JSON.parse(request.body));return {ok:true,blob:async()=>new Blob(['audio'])};};
+ globalThis.Audio=class {constructor(src){this.src=src;}play(){queueMicrotask(()=>this.onended());return Promise.resolve();}pause(){}};
+ try {
+  const speaker=createReplySpeaker('', 'ko');
+  speaker.feed('안녕하세요! '); speaker.feed('여행을 계획해요.'); assert.equal(await speaker.end(),true);
+  assert.equal(calls.map(c=>c.text).join(' '),'안녕하세요! 여행을 계획해요.');
+  assert.ok(calls.every(c=>c.language_code==='ko'));
+ } finally {globalThis.fetch=oldFetch;}
 });
 test('missing browser voice uses server audio rather than dropping speech', async () => {
  const calls=[];let plays=0;

@@ -8,6 +8,10 @@ def response_events(chunks, language_code=None):
     pending = ""
     reading_header = not language_code
     for chunk in chunks:
+        if hasattr(chunk, "suggested_replies"):
+            yield {"type": "suggestions", "replies": chunk.suggested_replies}
+        if hasattr(chunk, "ready_to_customise"):
+            yield {"type": "trip_intent", "ready_to_customise": chunk.ready_to_customise}
         text = chunk.text
         if not text:
             continue

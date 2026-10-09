@@ -20,7 +20,7 @@ async function api(base, path, body) {
   return data;
 }
 
-export default function CustomTrip({ apiBase, currency, lang = "en", language = "English", initialPreparation, onBack }) {
+export default function CustomTrip({ apiBase, currency, lang = "en", language = "English", initialBrief = "", initialPreparation, onBack }) {
   const pricing = useCurrency(apiBase, currency);
   const [packages, setPackages] = useState([]);
   const localize = usePackageText(apiBase, language, packages.map(p => p.id));
@@ -36,9 +36,11 @@ export default function CustomTrip({ apiBase, currency, lang = "en", language = 
   const [tab, setTab] = useState("places");
   const [theme, setTheme] = useState("All");
   const [focusedDay, setFocusedDay] = useState(null);
-  const [wish, setWish] = useState("");
+  const [wish, setWish] = useState(initialBrief);
+  const [travelersEdited, setTravelersEdited] = useState(false);
   const [planning, setPlanning] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(Boolean(initialBrief));
+  const [routeNotes, setRouteNotes] = useState(null);
   const [planError, setPlanError] = useState("");
   const [quote, setQuote] = useState(null);
   const [error, setError] = useState("");
@@ -76,7 +78,8 @@ export default function CustomTrip({ apiBase, currency, lang = "en", language = 
     if (!wish.trim() || planning || !packages.length) return;
     setPlanning(true); setPlanError("");
     try {
-      const result = await api(apiBase, "/api/draft", { request: `${wish.trim()}\nTravelers: ${travelers}. Preferred dates: ${form.travel_date || "not set"} to ${endDate || "not set"}. Currency: ${pricing.code}.`, language });
+      const currentRoute = days.map(day => ({ package_id: day.package_id, day: day.day }));
+      const result = await api(apiBase, "/api/draft", { request: `${wish.trim()}\n${travelersEdited || !initialBrief ? `Travelers: ${travelers}.` : "Use the traveler count stated in the discussion, if any."} Preferred dates: ${form.travel_date || "use dates stated in the discussion"} to ${endDate || "use dates stated in the discussion"}. Currency: ${pricing.code}.\n${currentRoute.length ? `Current editable route: ${JSON.stringify(currentRoute)}. Refine this route according to the latest request; preserve existing choices unless the request calls for changing them.` : "Create an editable route matching the discussion, using only verified catalogue days."}`, language });
       const mapped = result.days.map(ref => {
         const pkg = packages.find(p => p.id === ref.package_id);
         const day = pkg?.itinerary.find(d => d.day === ref.day);
@@ -84,14 +87,16 @@ export default function CustomTrip({ apiBase, currency, lang = "en", language = 
       }).filter(Boolean);
       if (!mapped.length) throw new Error(plannerText(lang, "No matching days. Try another idea."));
       setDays(groupRoute ? groupNearbyDays(mapped) : mapped); setFocusedDay(0); setTab("places");
+      setRouteNotes({ title: result.title, why: result.why_it_fits, assumptions: result.assumptions || [] });
+      if (!travelersEdited && Number.isInteger(result.travelers) && result.travelers >= 1 && result.travelers <= 30) setTravelers(result.travelers);
       setPlanError((result.unmet || []).join(" · "));
     } catch (e) { setPlanError(e.message); } finally { setPlanning(false); }
   }
   return <div className="custom-trip">
     <div className="trip-intro"><div><span className="trip-eyebrow">{plannerText(lang, "YOUR TRIP, YOUR WAY")}</span><h1>{plannerText(lang, "Make the journey yours.")}</h1><p>{plannerText(lang, "Pick your favourites. We’ll connect the journey.")}</p></div><button className="bp-btn bp-btn-ghost" onClick={onBack}>{plannerText(lang, "Browse packages")}</button></div><div className="planner-steps" aria-label={plannerText(lang, "Planning steps")}><span className={tab === "places" ? "current" : ""}><b>01</b> {plannerText(lang, "Explore")}</span><i /><span className={tab === "comfort" ? "current" : ""}><b>02</b> {plannerText(lang, "Personalize")}</span><i /><span className={review ? "current" : ""}><b>03</b> {plannerText(lang, "Review")}</span></div>
-    <div className="trip-setup"><label><Icon name="travelers" size={18} /> {plannerText(lang, "Travelers")}<input type="number" min="1" max="30" value={travelers} onChange={e => setTravelers(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} /></label><label><Icon name="calendar" size={18} /> {plannerText(lang, "Travel dates")}<TravelDate lang={lang} label={plannerText(lang, "Travel dates")} endValue={endDate} onEndChange={setEndDate} value={form.travel_date} onChange={e => setForm(f => ({...f, travel_date:e.target.value}))} /></label><span><Icon name="map" size={17} /> {plannerText(lang, "Northern Sri Lanka")}</span></div>
+    <div className="trip-setup"><label><Icon name="travelers" size={18} /> {plannerText(lang, "Travelers")}<input type="number" min="1" max="30" value={travelers} onChange={e => { setTravelersEdited(true); setTravelers(Math.max(1, Math.min(30, Number(e.target.value) || 1))); }} /></label><label><Icon name="calendar" size={18} /> {plannerText(lang, "Travel dates")}<TravelDate lang={lang} label={plannerText(lang, "Travel dates")} endValue={endDate} onEndChange={setEndDate} value={form.travel_date} onChange={e => setForm(f => ({...f, travel_date:e.target.value}))} /></label><span><Icon name="map" size={17} /> {plannerText(lang, "Northern Sri Lanka")}</span></div>
     <button className="planner-ai-launch" aria-expanded={aiOpen} aria-controls="planner-ai-panel" onClick={() => setAiOpen(v => !v)}><Icon name="sparkles" size={20} /> {aiOpen ? plannerText(lang, "Close Aura") : plannerText(lang, "Ask Aura")}</button>
-    {aiOpen && <section id="planner-ai-panel" className="planner-ai-panel" aria-label={plannerText(lang, "Aura route assistant")}><header><div><strong>{plannerText(lang, "Plan with Aura")}</strong><small>{plannerText(lang, "Your route, a little inspiration.")}</small></div><button aria-label={plannerText(lang, "Close Aura help")} onClick={() => setAiOpen(false)}><Icon name="close" size={18} /></button></header><form className="trip-ai-start" onSubmit={plan}><label><span>{plannerText(lang, "Describe your trip")}</span><textarea aria-label={plannerText(lang, "Describe your trip")} placeholder={plannerText(lang, "3 days, quiet beaches, local food…")} value={wish} maxLength={5000} onChange={e => setWish(e.target.value)} /></label><button className="bp-btn" disabled={planning || wish.trim().length < 3 || !packages.length}>{planning ? plannerText(lang, "Planning…") : plannerText(lang, "Create route")}</button></form>{planError && <p className="route-warning" role="status">{planError}</p>}</section>}
+    {aiOpen && <section id="planner-ai-panel" className="planner-ai-panel" aria-label={plannerText(lang, "Aura route assistant")}><header><div><strong>{plannerText(lang, "Plan with Aura")}</strong><small>{plannerText(lang, "Your route, a little inspiration.")}</small></div><button aria-label={plannerText(lang, "Close Aura help")} onClick={() => setAiOpen(false)}><Icon name="close" size={18} /></button></header><form className="trip-ai-start" onSubmit={plan}><label><span>{plannerText(lang, "Describe your trip")}</span><textarea aria-label={plannerText(lang, "Describe your trip")} placeholder={plannerText(lang, "3 days, quiet beaches, local food…")} value={wish} maxLength={5000} onChange={e => setWish(e.target.value)} /></label><button className="bp-btn" disabled={planning || wish.trim().length < 3 || !packages.length}>{planning ? plannerText(lang, "Planning…") : plannerText(lang, days.length ? "Refine route" : "Create route")}</button></form>{routeNotes && <div role="status"><strong>{routeNotes.title}</strong><p>{routeNotes.why}</p>{routeNotes.assumptions.length > 0 && <p>{routeNotes.assumptions.join(" ? ")}</p>}</div>}{planError && <p className="route-warning" role="status">{planError}</p>}</section>}
     <div className="custom-layout"><main>
       <nav className="trip-tabs" aria-label={plannerText(lang, "Trip customization")}><button className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}><Icon name="compass" size={18} /> {plannerText(lang, "Experiences")}</button><button className={tab === "comfort" ? "active" : ""} onClick={() => setTab("comfort")}><Icon name="bed" size={18} /> {plannerText(lang, "Stay & extras")}</button></nav>
       {tab === "places" && <section className="experience-browser"><div className="explore-heading"><h2>{plannerText(lang, "Explore your experiences")}</h2><span>{lang === "ko" ? `${days.length}일 선택됨` : `${days.length} days selected`}</span></div><input className="bp-input" placeholder={plannerText(lang, "Search a place or experience")} aria-label={plannerText(lang, "Search itinerary days")} value={filter} onChange={e => setFilter(e.target.value)} />

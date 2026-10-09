@@ -21,11 +21,13 @@ Rules:
 - Use ONLY package ids and day numbers that appear in the catalogue below. Never invent hotels, activities, prices, availability or travel times.
 - Rank by how well days fit the traveler's stated interests, group, pace and duration. Price may matter only through the traveler's own budget. Never favour anything for commission or sponsorship (there is no such data).
 - Pick a coherent, geographically sensible sequence of days (one entry per trip day).
+- When refining an existing route, preserve its selected days unless the latest customer request calls for changing them. Respect the latest corrections in the conversation; earlier proposals are context, not confirmed choices.
+- Return "travelers" as the explicitly stated total group size (1 to 30), or null when unknown. Do not infer a count from words such as family. Customer edits to the traveler field take precedence.
 - If a requirement cannot be met from the catalogue (dates/availability cannot be verified, hotel tier, a destination or activity that is not listed, live weather), list it in "unmet" with a short honest reason. Do not pretend to satisfy it.
 - Write "title", "why_it_fits", "assumptions" and "unmet" in {language}, the user's selected interface language, regardless of the language used in their request or speech.
 
 JSON shape:
-{{"title": str, "why_it_fits": str, "days": [{{"package_id": str, "day": int}}], "assumptions": [str], "unmet": [str]}}
+{{"title": str, "why_it_fits": str, "travelers": int | null, "days": [{{"package_id": str, "day": int}}], "assumptions": [str], "unmet": [str]}}
 
 {catalogue}
 """
@@ -117,6 +119,7 @@ def build_draft(client, model: str, request: str, language: str, timeout_ms: int
     return {
         "status": "draft",  # never "booked": the customer confirms in the Package Builder
         "title": raw.get("title", "Your draft journey"),
+        "travelers": raw.get("travelers") if type(raw.get("travelers")) is int and 1 <= raw["travelers"] <= 30 else None,
         "why_it_fits": raw.get("why_it_fits", ""),
         "days": days,
         "assumptions": raw.get("assumptions", []),

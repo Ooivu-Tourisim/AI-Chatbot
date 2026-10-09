@@ -9,7 +9,7 @@ export default defineConfig({
     // This is why the widget needs no apiBase prop and CORS never fires in dev.
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },

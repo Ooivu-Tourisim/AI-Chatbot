@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace as IntentChunk
 from types import SimpleNamespace
 from chat_stream import response_events
 
@@ -27,3 +28,15 @@ class ChatStreamTests(unittest.TestCase):
 
     def test_missing_header_preserves_answer(self):
         self.assertEqual(events(["Hello"]), [{"type": "delta", "text": "Hello"}, {"type": "done"}])
+class TripIntentTests(unittest.TestCase):
+    def test_reply_options_are_not_included_in_visible_or_spoken_answer(self):
+        events = list(response_events([IntentChunk(text="[[language:en]]\nHow many days?"), IntentChunk(text="", suggested_replies=["3 days", "One week"])]))
+        self.assertIn({"type": "suggestions", "replies": ["3 days", "One week"]}, events)
+        self.assertEqual("".join(e.get("text", "") for e in events), "How many days?")
+
+    def test_readiness_metadata_is_separate_from_visible_reply(self):
+        for ready in (True, False):
+            events = list(response_events([IntentChunk(text="", ready_to_customise=ready), IntentChunk(text="[[language:en]]\nYour reply")]))
+            self.assertEqual(events[0], {"type": "trip_intent", "ready_to_customise": ready})
+            self.assertEqual("".join(e.get("text", "") for e in events), "Your reply")
+

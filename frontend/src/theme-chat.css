@@ -249,3 +249,7 @@
 .aura .aura-language-chevron { position:absolute; right:12px; pointer-events:none; color:#87858c; }
 .aura .aura-lang:focus-within { outline:2px solid var(--aura-purple); outline-offset:2px; }
 @media(max-width:720px) { .aura .aura-top-links .aura-lang select { font-size:12px; min-width:90px; } }
+.aura-reply-preferences { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 13px; }
+.aura-reply-preferences label { display: flex; align-items: center; gap: 6px; }
+.aura-reply-preferences input, .aura-reply-preferences select, .aura-reply-preferences button { font: inherit; padding: 7px 10px; border: 1px solid #d4d4d4; border-radius: 8px; background: white; color: #222; }
+.aura-reply-preferences input { width: 230px; max-width: 100%; }

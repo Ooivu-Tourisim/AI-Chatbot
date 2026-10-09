@@ -228,8 +228,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
-  const draftLanguage = useRef(null);
-  const voiceTurn = useRef(false), speakerRef = useRef(null);
+  const speakerRef = useRef(null);
   const [quick, setQuick] = useState("");
   const [currency, setCurrency] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -242,6 +241,17 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+
+  function openPackageBuilder() {
+    speakerRef.current?.stop();
+    window.dispatchEvent(new Event("aura-conversation-stop"));
+    setBuilder({
+      request: null,
+      initialView: "custom",
+      tripBrief: messages.slice(-12).map(m => `${m.role === "user" ? "Traveler" : "Aura"}: ${m.content}`).join("\n").slice(-5000),
+      key: Date.now(),
+    });
+  }
 
   // Full-page mode: lock the host page's scroll and allow Esc to close.
   useEffect(() => {
@@ -277,26 +287,25 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
     inputRef.current?.focus();
   }
 
-  async function send(text, previous = messages, detectedLanguageCode) {
+  async function send(text, previous = messages, detectedLanguageCode, inputMethod = "text") {
     const trimmed = text.trim();
-    const languageCode = detectedLanguageCode || (draftLanguage.current?.text === trimmed ? draftLanguage.current.language_code : undefined);
+    const languageCode = detectedLanguageCode;
     if (!trimmed || streaming) return;
+    if (inputMethod !== "conversation") window.dispatchEvent(new Event("aura-conversation-stop"));
 
     // A message spoken into the mic is answered out loud as well as in text.
     speakerRef.current?.stop();
-    const speaker = voiceTurn.current ? createReplySpeaker(apiBase, languageCode) : null;
+    const speaker = inputMethod === "voice" ? createReplySpeaker(apiBase, languageCode) : null;
     speakerRef.current = speaker;
-    voiceTurn.current = false;
-    const history = [...previous, { role: "user", content: trimmed, time: Date.now() }];
+    const history = [...previous, { role: "user", content: trimmed, input_method: inputMethod, time: Date.now() }];
     setDeletedChat(null);
-    setMessages([...history, { role: "assistant", content: "", time: Date.now() }]);
+    setMessages([...history, { role: "assistant", content: "", input_method: inputMethod, time: Date.now() }]);
     setDraft("");
     setError(null);
     setStreaming(true);
 
     // Tell Aura the chosen currency on the latest turn without showing it in the chat.
-    const scriptLanguage = /[\u0B80-\u0BFF]/.test(trimmed) ? "Tamil" : /[\u0D80-\u0DFF]/.test(trimmed) ? "Sinhala" : /[\uAC00-\uD7AF]/.test(trimmed) ? "Korean" : /[\u0900-\u097F]/.test(trimmed) ? "Hindi" : /[\u0600-\u06FF]/.test(trimmed) ? "Arabic" : langInfo.name;
-    const notes = [currency && `My currency: ${currency}`, `Reply language: ${"Auto-detect from the latest message; use " + scriptLanguage + " only if ambiguous"}`]
+    const notes = [currency && `My currency: ${currency}`]
       .filter(Boolean)
       .join("; ");
     const payload = history.map((m, i) => ({
@@ -313,7 +322,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: payload, language_code: languageCode, currency: currency || "USD" }),
+        body: JSON.stringify({ messages: payload, input_language_code: inputMethod !== "text" ? languageCode : undefined, currency: currency || "USD" }),
         signal: controller.signal,
       });
       if (!res.ok) throw new Error(String(res.status));
@@ -335,7 +344,13 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
           if (!line) continue;
           const event = JSON.parse(line.slice(6));
 
-          if (event.type === "language") {
+          if (event.type === "suggestions") {
+            if (abortRef.current !== controller) continue;
+            setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, suggested_replies: Array.isArray(event.replies) ? event.replies.filter(r => typeof r === "string") : [] } : m));
+          } else if (event.type === "trip_intent") {
+            if (abortRef.current !== controller) continue;
+            setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, ready_to_customise: event.ready_to_customise === true } : m));
+          } else if (event.type === "language") {
             if (abortRef.current !== controller) continue;
             setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, language_code: event.language_code } : m));
             speaker?.setLanguage(event.language_code);
@@ -351,7 +366,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
               return next;
             });
           } else if (event.type === "error") {
-            setError(event.code === "rate_limited" ? event.message : AI_DOWN);
+            setError(["rate_limited", "provider_auth"].includes(event.code) ? event.message : AI_DOWN);
           }
         }
       }
@@ -359,7 +374,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
       if (abortRef.current === controller && err.name !== "AbortError") setError(AI_DOWN);
     } finally {
       if (abortRef.current === controller) {
-        speaker?.end();
+        speaker?.end().then(success => { if (!success) setError("Voice output is unavailable. Your text reply is still available."); });
         setStreaming(false);
         abortRef.current = null;
         inputRef.current?.focus();
@@ -376,6 +391,14 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
 
   const t = I18N[lang] || I18N.en;
   const langInfo = LANGS.find((l) => l.code === lang) || LANGS.find(l => l.code === "en");
+  // Database text in the builder follows the language the traveler is chatting in, not just the UI picker.
+  const chatCode = messages.findLast((m) => m.role === "assistant" && m.language_code)?.language_code;
+  const chatLang = LANGS.find((l) => l.code === chatCode);
+  const builderLang = chatLang ? chatLang.code : lang;
+  let contentLanguage = chatLang?.name;
+  if (chatCode && !chatLang) {
+    try { contentLanguage = new Intl.DisplayNames(["en"], { type: "language" }).of(chatCode); } catch { /* unknown code */ }
+  }
   const empty = messages.length === 0;
   const lastIdx = messages.length - 1;
 
@@ -525,7 +548,11 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
                         <span className="aura-bubble-name">Aura</span>
                         {m.content ? (
                           <div className="aura-md">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                              a: ({ href, children }) => ["#package-builder", "#customise-your-trip", "#customise-your-own-trip", "/package-builder", "/customise-your-trip", "/customise-your-own-trip"].includes(href) || (typeof children === "string" && /^customi[sz]e (?:your|my)(?: own)? trip$/i.test(children.trim()))
+                                ? <a href="#package-builder" onClick={e => { e.preventDefault(); openPackageBuilder(); }}>{children}</a>
+                                : <a href={href}>{children}</a>,
+                            }}>{m.content}</ReactMarkdown>
                             {streaming && i === lastIdx && <span className="aura-caret" />}
                           </div>
                         ) : (
@@ -551,20 +578,14 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
                 </article>
               ))}
               {error && <p className="aura-error">{error}</p>}
-              {!streaming && !error && messages[lastIdx]?.role === "assistant" && messages[lastIdx].content && messages.filter((m) => m.role === "user").length >= 2 && (
-                <div className="aura-ready">
-                  <div>
-                    <strong>{(PAGE_I18N[lang] || PAGE_I18N.en).readyTitle}</strong>
-                    <p>{(PAGE_I18N[lang] || PAGE_I18N.en).readyText}</p>
-                  </div>
-                  <button onClick={() => setBuilder({ request: messages.filter((m) => m.role === "user").map((m) => m.content).join("\n") + (currency ? `\n(Currency: ${currency})` : ""), key: Date.now() })}>
-                    {(PAGE_I18N[lang] || PAGE_I18N.en).readyBtn}
-                  </button>
-                </div>
+              {!streaming && !error && messages[lastIdx]?.role === "assistant" && messages[lastIdx].content && messages[lastIdx].ready_to_customise && (
+                <a className="aura-customise-link" href="#package-builder" onClick={e => { e.preventDefault(); openPackageBuilder(); }}>
+                  {plannerText(lang, "Customise your trip")}
+                </a>
               )}
-              {!streaming && !error && messages[lastIdx]?.role === "assistant" && (
+              {!streaming && !error && messages[lastIdx]?.role === "assistant" && messages[lastIdx].suggested_replies?.length > 0 && (
                 <div className="aura-replies" aria-label="Quick replies">
-                  {t.replies.map((r) => (
+                  {messages[lastIdx].suggested_replies.map((r) => (
                     <button key={r} onClick={() => send(r)}>{r}</button>
                   ))}
                 </div>
@@ -585,8 +606,9 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
               onKeyDown={onKeyDown}
             />
             <div className="aura-compose-bar">
-              <VoiceConversation apiBase={apiBase} lang={lang} language={langInfo.locale} reply={messages.findLast(m => m.role === "assistant")} busy={streaming} onSend={send} />
-              <VoiceInput apiBase={apiBase} key={messages.length} value={draft} onChange={setDraft} onDetected={result => { draftLanguage.current = result; voiceTurn.current = true; send(result.text, undefined, result.language_code); }} language={langInfo.locale} disabled={streaming} />
+              <VoiceConversation apiBase={apiBase} lang={lang} language={langInfo.locale} reply={messages.findLast(m => m.role === "assistant")} busy={streaming} onSend={(text, previous, code) => send(text, previous, code, "conversation")} />
+              <VoiceInput apiBase={apiBase} key={messages.length} value={draft} onChange={setDraft} disabled={streaming} />
+              <button type="button" onClick={() => { speakerRef.current?.stop(); window.dispatchEvent(new Event("aura-speech-stop")); }}>Stop audio</button>
               <button className="aura-send" onClick={() => send(draft)} disabled={streaming || !draft.trim()} aria-label="Send">
                 <Icon name="paper-plane" size={22} />
               </button>
@@ -600,8 +622,11 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
         <BuilderPage
           key={builder.key}
           apiBase={apiBase}
-          lang={lang}
+          lang={builderLang}
+          contentLanguage={contentLanguage}
           request={builder.request}
+          initialView={builder.initialView}
+          tripBrief={builder.tripBrief}
           currency={currency || "LKR"}
           onClose={() => setBuilder(null)}
         />
