@@ -1,6 +1,16 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
-export default function TravelDate({ value, onChange, label = "Travel date" }) {
-  const input = useRef(null);
-  return <div className="travel-date-control"><input ref={input} className="bp-input" aria-label={label} type="date" value={value} onChange={onChange} /><button type="button" aria-label={`Open calendar for ${label}`} title="Choose from calendar" onClick={() => { try { input.current.showPicker(); } catch { input.current.focus(); } }}><Icon name="calendar" size={20} /></button></div>;
+const localDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+export default function TravelDate({ value, onChange, label = "Travel date", endValue, onEndChange }) {
+  const [open,setOpen] = useState(false);
+  const [month,setMonth] = useState(() => value ? new Date(`${value}T12:00:00`) : new Date());
+  const root = useRef(null);
+  const range = !!onEndChange;
+  const duration = value && endValue ? Math.round((Date.parse(endValue)-Date.parse(value))/86400000)+1 : 0;
+  const choose = date => { if (!range) { onChange({target:{value:date}});setOpen(false); } else if (!value || endValue || date < value) { onChange({target:{value:date}});onEndChange(""); } else { onEndChange(date);setOpen(false); } };
+  useEffect(() => { if (!open) return; const close = e => { if (!root.current?.contains(e.target)) setOpen(false); }; document.addEventListener("pointerdown",close); return () => document.removeEventListener("pointerdown",close); },[open]);
+  const year=month.getFullYear(), m=month.getMonth();
+  const start=new Date(year,m,1).getDay(), count=new Date(year,m+1,0).getDate();
+  const title=month.toLocaleDateString("en",{month:"long",year:"numeric"});
+  return <div className="travel-date-control" ref={root} onKeyDown={e => { if(e.key === "Escape") setOpen(false); }}><button className="calendar-trigger" type="button" aria-label={`Open calendar for ${label}`} aria-expanded={open} onClick={() => setOpen(v=>!v)}><Icon name="calendar" size={22}/><span>{value ? new Date(`${value}T12:00:00`).toLocaleDateString("en",{day:"numeric",month:"long",year:"numeric"}) : range ? "Choose travel dates" : "Choose a date"}{range && endValue && ` – ${new Date(`${endValue}T12:00:00`).toLocaleDateString("en",{day:"numeric",month:"short"})} · ${duration} days`}</span><Icon name="chevron-down" size={16}/></button>{open && <section className="travel-calendar" aria-label={`${label} calendar`}><header><button type="button" aria-label="Previous month" onClick={()=>setMonth(new Date(year,m-1,1))}><Icon name="arrow-back" size={20}/></button><strong aria-live="polite">{title}</strong><button type="button" aria-label="Next month" onClick={()=>setMonth(new Date(year,m+1,1))}><Icon name="arrow-forward" size={20}/></button></header>{range && <p className="calendar-range-hint">{value && !endValue ? "Now choose your end date" : "Select your start and end dates"}</p>}<div className="calendar-week">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-days">{Array.from({length:start},(_,i)=><span key={`blank-${i}`}/>)}{Array.from({length:count},(_,i)=>{const day=i+1, date=localDate(new Date(year,m,day));return <button type="button" key={day} aria-label={new Date(year,m,day).toLocaleDateString("en",{day:"numeric",month:"long",year:"numeric"})} aria-pressed={value===date || endValue===date} className={value===date || endValue===date ? "selected" : value && endValue && date>value && date<endValue ? "in-range" : ""} onClick={()=>choose(date)}>{day}</button>;})}</div><footer><button type="button" onClick={()=>{onChange({target:{value:""}});onEndChange?.("");setOpen(false);}}>Clear date</button><button type="button" onClick={()=>setOpen(false)}>Done</button></footer></section>}</div>;
 }

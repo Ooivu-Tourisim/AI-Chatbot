@@ -1634,3 +1634,10 @@ button.aura-launch:hover {
 
 .aura .aura-time { display:block; margin-top:10px; padding-top:2px; font-size:12px; font-weight:600; line-height:1.4; color:#826548; font-variant-numeric:tabular-nums; opacity:1; }
 .aura .aura-msg-user .aura-time { color:#826548; text-align:right; }
+.aura .aura-launch .aura-launch-icon { color:#ffc077 !important; }
+.aura .aura-launch .aura-launch-badge { background:#ffffff15 !important; border:0; }
+.aura .aura-launch .aura-launch-icon { color:#ff941f !important; }
+.aura .aura-launch .aura-launch-arrow { color:#ff941f !important; }
+.aura .aura-launch .aura-launch-badge { width:32px; height:32px; background:transparent !important; border:0; }
+.aura .aura-launch-dot { display:none; }
+.aura .aura-launch { border-radius:999px !important; padding:10px 16px !important; gap:9px; box-shadow:0 4px 14px #70139120 !important; }

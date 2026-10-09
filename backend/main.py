@@ -24,6 +24,7 @@ import currency
 import database
 import draft
 import rag
+import translate
 from prompt import build_greeting, build_system_prompt
 
 load_dotenv()
@@ -187,6 +188,22 @@ def greeting():
 def list_packages():
     """Return all verified packages directly from the SQLite database."""
     return database.get_all_packages()
+
+
+class TranslateRequest(BaseModel):
+    language: str = Field(default="English", max_length=40)
+    package_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+@app.post("/api/translate/packages")
+def translate_packages(req: TranslateRequest):
+    """Package text in the traveler's language: {package_id: translated fields}. English is returned as-is (empty)."""
+    if req.language.strip().lower() in ("english", "en"):
+        return {}
+    if not client:
+        raise HTTPException(status_code=503, detail=AI_DOWN)
+    ids = [i for i in dict.fromkeys(req.package_ids) if database.get_package_by_id(i)]
+    return translate.translate_many(client, MODEL, ids, req.language, 30000)
 
 
 @app.get("/api/currencies")

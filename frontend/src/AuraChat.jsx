@@ -10,6 +10,7 @@ import { PAGE_I18N } from "./builderPageStrings.js";
 import { BUILDER_I18N } from "./builderStrings.js";
 import { CARD_IMAGES, I18N, LANGS, formatTime, loadLang } from "./i18n.js";
 import "./AuraChat.css";
+import "./theme-chat.css";
 
 const AI_DOWN = "AI suggestions are temporarily unavailable. You can continue browsing, customizing, and booking manually.";
 const BuilderPage = lazy(() => import("./BuilderPage.jsx"));
@@ -156,7 +157,7 @@ function CurrencyPicker({ value, onChange }) {
               aria-label="Type country or currency"
             />
             <p className="aura-currency-search-tip">
-              💡 Type your country, nationality, or currency name (e.g. <em>Afghan</em>, <em>Australia</em>, <em>USD</em>)
+              Type your country, nationality, or currency name (e.g. <em>Afghan</em>, <em>Australia</em>, <em>USD</em>)
             </p>
           </div>
 
@@ -362,11 +363,11 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
           aria-label="Open Aura AI Travel Assistant"
         >
           <span className="aura-launch-badge" aria-hidden="true">
-            <Icon name="assistant-bubble" size={24} className="aura-launch-icon" />
+            <Icon name="sparkles" size={22} className="aura-launch-icon" />
             <span className="aura-launch-dot" />
           </span>
           <span className="aura-launch-text">
-            <span className="aura-launch-label">Plan with Aura</span>
+            <span className="aura-launch-label">Ask Aura</span>
             <span className="aura-launch-hint">AI travel assistant</span>
           </span>
           <Icon name="arrow-forward" size={20} className="aura-launch-arrow" />
@@ -422,11 +423,6 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
           <span className="aura-rail-icon"><Icon name="briefcase" /></span>
           {t.packing}
         </button>
-        <span className="aura-rail-item is-active">
-          <span className="aura-rail-icon"><Icon name="flash" /></span>
-          Aura AI
-        </span>
-
         <button className="aura-rail-item aura-rail-back" onClick={() => setOpen(false)}>
           <span className="aura-rail-icon"><Icon name="arrow-back" /></span>
           {t.back}
@@ -472,7 +468,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
             <section className="aura-hero">
               <h1 className="aura-headline">{lang === "en" ? "Your trip. Made for you." : t.headline}</h1>
               <p className="aura-sub">{lang === "en" ? "Tell Aura your idea, or pick places on the map." : t.sub(currency)}</p>
-              <div className="aura-trip-banner"><div><span>PLAN → MAP → PERSONALIZE</span><strong>See your journey take shape.</strong></div><button onClick={() => setBuilder({ request: null, key: Date.now() })}>Build my route →</button></div>
+              <div className="aura-trip-banner"><div><span>Trip planner</span><strong>Build your route on the map</strong></div><button onClick={() => setBuilder({ request: null, key: Date.now() })}>Open trip planner</button></div>
 
               <div className="aura-cards">
                 {CARD_IMAGES.map((image, ci) => {

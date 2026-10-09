@@ -420,3 +420,155 @@
 .builder-undo { padding:8px 14px; }
 .aura .builder-undo button { font-size:12px; color:#b5753e; }
 @media(max-width:600px) { .bp-summary dl { grid-template-columns:1fr; } }
+/* Photo-led travel editorial, inspired by the supplied Black Tomato reference. */
+.bp { background:#f8f7f3; }
+.bp-top-title { font-family:inherit; font-size:15px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.aura .builder-modes button { text-transform:uppercase; letter-spacing:.08em; font-size:10px; border-radius:2px; }
+.custom-trip { padding:22px 32px; }
+.trip-intro { border-bottom:1px solid #dfd9ce; padding-bottom:18px; margin-bottom:18px; }
+.trip-intro h1 { font-family:inherit; font-size:clamp(25px,3vw,38px); font-weight:800; letter-spacing:.025em; text-transform:uppercase; }
+.trip-eyebrow { font-size:9px; letter-spacing:.25em; }
+.aura .custom-trip .bp-btn { border-radius:2px; text-transform:uppercase; letter-spacing:.08em; font-weight:800; font-size:10px; }
+.trip-setup { border-radius:2px; background:transparent; }
+.trip-ai-start { border-radius:2px; background:#fff5e9; }
+.trip-ai-start input { border-radius:2px; }
+.explore-heading h2 { font-family:inherit; text-transform:uppercase; letter-spacing:.1em; font-size:17px; font-weight:800; }
+.aura .theme-filters button { border:0 !important; border-bottom:1px solid transparent !important; border-radius:0; text-transform:uppercase; letter-spacing:.08em; font-size:9px; }
+.aura .theme-filters button.active { background:transparent !important; border-bottom-color:#c8864b !important; }
+.experience-grid { gap:14px; }
+.experience-visual { position:relative; min-height:310px; border:0; border-radius:2px; background:#976b46; isolation:isolate; }
+.experience-visual.added { box-shadow:0 0 0 3px #ce8f4c; }
+.experience-photo { position:absolute; inset:0; height:100%; z-index:-2; }
+.experience-photo img { transition:transform .65s; }
+.experience-visual:hover .experience-photo img { transform:scale(1.05); }
+.experience-visual::after { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(180deg,rgba(95,62,36,.05) 15%,rgba(72,44,26,.4) 45%,rgba(72,44,26,.92)); }
+.experience-photo > span { top:12px; bottom:auto; left:12px; background:transparent; color:#fff6eb; font-size:9px; text-transform:uppercase; letter-spacing:.09em; padding:0; }
+.experience-photo > span .aura-eva { color:#ffcb91; }
+.experience-photo > b { top:34px; left:12px; background:#fff5e8; color:#a87442; border-radius:2px; font-size:9px; }
+.experience-info { position:absolute; left:0; right:0; bottom:0; padding:16px; color:#fff6eb; }
+.experience-info h3 { color:#fff6eb; text-transform:uppercase; letter-spacing:.06em; font-size:12px; font-weight:800; line-height:1.55; min-height:0; }
+.place-caption { color:#efd8be; font-size:10px; min-height:0; margin:7px 0 12px; }
+.experience-price > strong { color:#ffe0bb; font-size:11px; }
+.aura .experience-price .bp-btn { background:transparent !important; border:1px solid #eed6b8 !important; color:#fff7ec !important; padding:8px 10px; }
+.aura .experience-price .bp-btn:hover:not(:disabled) { background:#cd8546 !important; }
+.experience-info details { border-color:#ffffff38; color:#fff0de; padding-top:9px; font-size:11px; }
+.experience-info summary { color:#f4dec5; font-size:9px; text-transform:uppercase; letter-spacing:.12em; }
+.experience-info details p { max-height:125px; overflow:auto; line-height:1.6; }
+.experience-visual:has(details[open])::after { background:linear-gradient(180deg,rgba(72,44,26,.3),rgba(72,44,26,.97)); }
+.experience-visual:has(details[open]) { min-height:360px; }
+.route-card,.trip-summary.bp-card,.custom-layout aside { border-radius:3px; }
+.route-heading h3,.journey-heading h3 { font-size:12px; text-transform:uppercase; letter-spacing:.1em; }
+.custom-layout aside { background:#eeeae2; }
+.bp-summary { border-radius:3px; }
+.bp-hero { border-radius:0; }
+.bp-hero h1 { font-family:inherit; text-transform:uppercase; font-weight:800; letter-spacing:.04em; }
+@media(max-width:760px) { .custom-trip { padding:16px 12px; } .trip-intro h1 { font-size:25px; } .experience-visual { min-height:290px; } .experience-info { padding:12px; } }
+@media(max-width:430px) { .experience-info h3 { font-size:10px; } .experience-visual { min-height:300px; } .experience-price { gap:8px; } .explore-heading h2 { font-size:14px; } }
+/* Full-width workspace; Aura is available on demand in the corner. */
+.custom-trip { width:100%; max-width:none; padding:18px 24px 80px; box-sizing:border-box; }
+.custom-layout { grid-template-columns:minmax(0,1fr) minmax(300px,350px); gap:20px; }
+.custom-layout aside { width:100%; min-width:0; box-sizing:border-box; overflow-x:hidden; }
+.trip-summary,.trip-currency,.trip-currency label { min-width:0; max-width:100%; box-sizing:border-box; }
+.trip-currency { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+.trip-currency label { width:100%; }
+.trip-currency input,.trip-currency select { width:100%; max-width:100%; min-width:0; box-sizing:border-box; }
+.trip-intro { padding-bottom:10px; margin-bottom:10px; }
+.trip-intro h1 { font-size:26px; }
+.planner-steps { margin-bottom:10px; }
+.trip-setup { margin-bottom:12px; }
+.bp-layout { max-width:none; padding:20px 24px 70px; }
+.bp-chat { position:absolute; right:20px; bottom:80px; z-index:8; width:min(370px,calc(100% - 40px)); height:min(560px,75%); border:1px solid #e0d4c7; border-radius:15px; box-shadow:0 15px 50px #74523926; overflow:hidden; }
+.aura .bp-chat-fab { right:20px; bottom:20px; padding:12px 18px; }
+.aura .planner-ai-launch { position:absolute; right:20px; bottom:20px; z-index:9; display:flex; align-items:center; gap:9px; padding:12px 18px; border-radius:30px; background:#701391 !important; color:#fff !important; box-shadow:0 6px 20px #70139122; font-size:13px; font-weight:700; }
+.planner-ai-launch .aura-eva { color:#ffc077; }
+.planner-ai-panel { position:absolute; right:20px; bottom:78px; z-index:9; width:min(350px,calc(100% - 40px)); background:#fffdf9; border:1px solid #e4d5c4; border-radius:16px; box-shadow:0 12px 45px #74523926; padding:18px; box-sizing:border-box; }
+.planner-ai-panel header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.planner-ai-panel header strong { display:block; color:#85563c; font-size:16px; }
+.planner-ai-panel header small { display:block; font-size:11px; color:#a18870; margin-top:5px; }
+.planner-ai-panel .trip-ai-start { display:flex; flex-direction:column; align-items:stretch; border:0; padding:0; background:transparent; margin:0; }
+.planner-ai-panel .trip-ai-start label { display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+.planner-ai-panel textarea { resize:vertical; min-height:100px; max-height:200px; width:100%; box-sizing:border-box; padding:12px; background:#fff7ed; border:1px solid #ead7bf; border-radius:8px; font:inherit; font-size:13px; }
+@media(min-width:1450px) { .experience-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media(max-width:760px) { .custom-trip { padding:14px 12px 85px; } .custom-layout { grid-template-columns:minmax(0,1fr); } .trip-intro h1 { font-size:23px; } .bp-layout { padding:16px 12px 80px; } }
+/* Category shelves keep the catalogue easy to browse without a dense grid. */
+.experience-category { margin:24px 0 30px; min-width:0; }
+.experience-category > header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+.experience-category > header > div:first-child { display:flex; align-items:baseline; gap:12px; }
+.experience-category > header h3 { margin:0; color:#97643f; font-size:16px; font-weight:800; }
+.experience-category > header span { color:#ac937b; font-size:10px; }
+.category-arrows { display:flex; gap:6px; }
+.aura .category-arrows button { display:grid; place-items:center; width:32px; height:32px; background:#fffaf3 !important; color:#b77a45 !important; border:1px solid #e9d7c1 !important; border-radius:50%; }
+.experience-row { display:flex; gap:16px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x proximity; scroll-padding:4px; padding:4px 4px 12px; scrollbar-width:thin; scrollbar-color:#d4b493 #f0e9df; }
+.experience-row > .experience-visual { flex:0 0 240px; min-height:310px; scroll-snap-align:start; }
+.experience-row:focus-visible { outline:2px solid #cb8846; outline-offset:3px; }
+@media(max-width:600px) { .experience-row > .experience-visual { flex-basis:210px; min-height:290px; } .experience-category { margin:18px 0 24px; } }
+/* Larger cards with edge navigation, like streaming shelves. */
+.experience-category { position:relative; }
+.experience-row { gap:18px; padding:4px 4px 14px; scrollbar-width:none; }
+.experience-row::-webkit-scrollbar { display:none; }
+.experience-row > .experience-visual { flex-basis:290px; min-height:370px; }
+.experience-row .experience-info h3 { font-size:14px; }
+.experience-category > header { padding-right:0; }
+.category-arrows { position:absolute; inset:55px 0 14px; pointer-events:none; z-index:2; justify-content:space-between; align-items:center; }
+.aura .category-arrows button { pointer-events:auto; width:36px; height:76px; border:0 !important; border-radius:3px; background:#fff9efe8 !important; color:#b57439 !important; box-shadow:0 2px 15px #70452022; transition:background .2s; }
+.aura .category-arrows button:hover { background:#fff !important; }
+.experience-row > .experience-visual:has(details[open]) { min-height:410px; }
+@media(max-width:600px) { .experience-row > .experience-visual { flex-basis:260px; min-height:340px; } .aura .category-arrows button { width:29px; height:58px; } }
+.aura .planner-ai-launch { padding:11px 17px; box-shadow:0 4px 14px #70139120; }
+.aura .planner-ai-launch .aura-eva { color:#ff941f !important; }
+/* Ritz Tours reference: separate photography from readable trip details. */
+.experience-row > .experience-visual { min-height:420px; background:#fff; border:1px solid #e7ddd1; border-radius:6px; isolation:auto; }
+.experience-visual::after { display:none; }
+.experience-row .experience-photo { position:relative; inset:auto; height:190px; z-index:auto; }
+.experience-row .experience-photo > span { top:12px; left:12px; background:#fff8ef; color:#aa6935; padding:5px 8px; border-radius:3px; }
+.experience-row .experience-photo > span .aura-eva { color:#fc6600; }
+.experience-row .experience-photo > b { top:40px; }
+.experience-row .experience-info { position:relative; inset:auto; padding:18px; color:#866247; }
+.experience-row .experience-info h3 { font-family:var(--aura-display); text-transform:none; letter-spacing:0; color:#855d3d; font-size:20px; line-height:1.25; min-height:50px; }
+.experience-row .place-caption { color:#a58d75; font-size:11px; line-height:1.6; min-height:35px; margin:7px 0 14px; }
+.experience-row .experience-price > strong { color:#a96835; font-size:13px; }
+.aura .experience-row .experience-price .bp-btn { color:#b56a30 !important; background:#fff3e4 !important; border-color:#efcaa0 !important; }
+.experience-row .experience-info details { color:#99816b; border-color:#ebdfd1; }
+.experience-row .experience-info summary { color:#a87950; }
+.experience-row > .experience-visual:has(details[open]) { min-height:420px; }
+.experience-category > header h3 { font-family:var(--aura-display); font-size:24px; font-weight:600; }
+.category-arrows { inset:55px 0 14px; }
+@media(max-width:600px) { .experience-row > .experience-visual { min-height:390px; } .experience-row .experience-photo { height:170px; } .experience-row .experience-info h3 { font-size:18px; } }
+/* Calendar-only date selection and a more generous route workspace. */
+.trip-setup { background:#fffaf4; border:1px solid #ead9c4; border-radius:14px; padding:16px 20px; gap:28px; align-items:center; }
+.trip-setup label { font-size:13px; gap:12px; }
+.trip-setup input[type=number] { padding:12px; border-radius:10px; text-align:center; font-weight:700; }
+.travel-date-control { position:relative; display:inline-flex; }
+.aura .travel-date-control .calendar-trigger { width:auto; min-width:220px; gap:12px; padding:13px 16px; border:1px solid #e9c9a4 !important; border-radius:10px; background:#fff !important; color:#a36a38 !important; font-size:13px; }
+.travel-calendar { position:absolute; top:calc(100% + 10px); left:0; width:350px; max-width:calc(100vw - 32px); padding:20px; box-sizing:border-box; background:#fffdfa; border:1px solid #e6ceb2; border-radius:18px; box-shadow:0 12px 38px #72512c25; z-index:20; }
+.travel-calendar header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+.travel-calendar header strong { font-size:17px; color:#8c603d; }
+.aura .travel-calendar header button { padding:8px; background:transparent !important; border:0 !important; }
+.calendar-week,.calendar-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; text-align:center; }
+.calendar-week { margin-bottom:8px; color:#af9478; font-size:11px; }
+.aura .calendar-days button { aspect-ratio:1; padding:0; border:0 !important; background:#faf2e8 !important; border-radius:9px; color:#8b6545 !important; font-size:14px; font-weight:600; }
+.aura .calendar-days button:hover,.aura .calendar-days button.selected { background:#fc6600 !important; color:#fff !important; }
+.travel-calendar footer { display:flex; justify-content:space-between; border-top:1px solid #ebdfd0; margin-top:18px; padding-top:12px; }
+.aura .travel-calendar footer button { background:transparent !important; border:0 !important; padding:5px; font-size:12px; }
+.custom-layout { grid-template-columns:minmax(0,1fr) minmax(360px,430px); }
+.custom-layout .trip-map { height:365px; }
+@media(max-width:900px) { .custom-layout { grid-template-columns:minmax(0,1fr) 340px; } }
+@media(max-width:760px) { .custom-layout { grid-template-columns:1fr; } .custom-layout .trip-map { height:340px; } .trip-setup { padding:14px; gap:14px; } .travel-calendar { left:auto; right:0; } }
+.custom-layout { grid-template-columns:minmax(0,1fr) minmax(420px,40%); }
+.custom-layout .trip-map { height:440px; background:#eaf1ee; }
+.route-card { border:1px solid #e5dbce; }
+.route-pin span { background:#fffaf4; color:#b96b31; border:2px solid #fc6600; box-shadow:0 3px 10px #97623a22; }
+.calendar-range-hint { font-size:12px; color:#a4754e; margin:0 0 14px; }
+.aura .calendar-days button.in-range { background:#ffe1c7 !important; color:#a96b37 !important; }
+.travel-date-control .calendar-trigger span { line-height:1.5; }
+.route-jeep { filter:drop-shadow(0 3px 4px #78422644); }
+@media(max-width:1000px) { .custom-layout { grid-template-columns:minmax(0,1fr) 390px; } }
+@media(max-width:760px) { .custom-layout { grid-template-columns:1fr; } .custom-layout .trip-map { height:380px; } }
+/* Never let a card be wider than its shelf, so it is not clipped when the column is narrow. */
+.experience-row > .experience-visual { flex:0 0 min(290px,calc(100% - 8px)); min-width:0; }
+.experience-row { scroll-snap-type:x mandatory; }
+/* One container for the whole trip builder sidebar: toggle, map, itinerary, currency, budget and actions. */
+.custom-layout aside { background:#fff; border:1px solid #e5dbce; border-radius:12px; padding:14px; box-shadow:0 8px 30px #3020400a; }
+.custom-layout aside .route-card,.custom-layout aside .trip-summary.bp-card { background:transparent; border:0; border-radius:0; box-shadow:none; padding:0; margin:0; }
+.custom-layout aside .route-card { border-radius:8px; overflow:hidden; margin-bottom:14px; }
+.custom-layout aside .trip-summary.bp-card { border-top:1px solid #eadfd2; padding-top:14px; }

@@ -7,8 +7,10 @@ import { AI_I18N } from "./builderAiStrings.js";
 import { DRAFT_I18N } from "./draftStrings.js";
 import { PAGE_I18N } from "./builderPageStrings.js";
 import "./BuilderPage.css";
+import "./theme-builder.css";
 import CustomTrip from "./CustomTrip.jsx";
 import ChatActions from "./ChatActions.jsx";
+import usePackageText from "./usePackageText.js";
 import { deleteTurn } from "./chatHistory.js";
 import TripMap from "./TripMap.jsx";
 import { dayPlaces } from "./tripPlaces.js";
@@ -22,7 +24,7 @@ const COVER = {
   WEL: "/images/cards/delft.jpg", NAT: "/images/cards/wildlife.jpg", ROM: "/images/cards/romantic.jpg",
 };
 const cover = (id) => COVER[id?.split("-")[1]] || "/images/cards/budget.jpg";
-const GROUP_ICON = { hotel: "🏨", meals: "🍽️", transport: "🚐", extras: "✨" };
+const GROUP_ICON = { hotel: "bed", meals: "food", transport: "vehicle", extras: "guide" };
 
 async function call(apiBase, path, body, signal) {
   const res = await fetch(`${apiBase}${path}`, {
@@ -68,7 +70,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
   const [budget, setBudget] = useState("");
   const [savings, setSavings] = useState(null);
 
-  const [chatOpen, setChatOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1180);
+  const [chatOpen, setChatOpen] = useState(false);
   const [chat, setChat] = useState([]); // { role: "aura"|"user", text, proposal?, applied? }
   const [deletedChat, setDeletedChat] = useState(null);
   const [ask, setAsk] = useState("");
@@ -247,6 +249,8 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const over = quote && budgetLkr && quote.total_lkr > budgetLkr ? quote.total_lkr - budgetLkr : 0;
   const pkg = data?.package;
+  const localize = usePackageText(apiBase, language, pkg ? [pkg.id] : (packages || []).map((x) => x.id));
+  const view = pkg ? localize(pkg) : null;
   const chosenLabels = data
     ? data.groups.map((g) => {
         const v = sel[g.id];
@@ -268,7 +272,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
         <button className="bp-x" onClick={onClose} aria-label={t.close}><Icon name="close" size={22} /></button>
       </header>
 
-      <nav className="builder-modes" aria-label="Builder mode"><button className={custom ? "is-active" : ""} onClick={() => setCustom(true)}>Build my own trip</button><button className={!custom ? "is-active" : ""} onClick={() => setCustom(false)}>Customize a package</button><span>Choose experiences → personalize → review</span></nav>
+      <nav className="builder-modes" aria-label="Builder mode"><button className={custom ? "is-active" : ""} onClick={() => setCustom(true)}>Build my own trip</button><button className={!custom ? "is-active" : ""} onClick={() => setCustom(false)}>Customize a package</button><span>Choose experiences, personalize, review</span></nav>
       {custom ? <div className="bp-scroll"><CustomTrip initialPreparation={preparation} apiBase={apiBase} currency={currency} language={language} onBack={() => setCustom(false)} /></div> : <div className="bp-body">
       <div className="bp-scroll">
         {phase === "drafting" && (
@@ -300,7 +304,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                 <button key={pk.id} className="bp-pkg" onClick={() => setPkgId(pk.id)}>
                   <img src={cover(pk.id)} alt="" loading="lazy" />
                   <span className="bp-pkg-body">
-                    <strong><Icon name={pk.icon_name || "compass"} size={20} /> {pk.title}</strong>
+                    <strong><Icon name={pk.icon_name || "compass"} size={20} /> {localize(pk).title}</strong>
                     <small>{t.meta(pk.duration_days, pk.duration_nights)} · {fmt(pk.price_lkr)}</small>
                   </span>
                 </button>
@@ -313,19 +317,22 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
           <>
             <section className="bp-hero" style={{ backgroundImage: `url(${cover(pkg.id)})` }}>
               <div className="bp-hero-in">
-                <span className="bp-chip">{pkg.category}</span>
-                <h1>{pkg.title}</h1>
-                <p>{pkg.tagline}</p>
+                <span className="bp-chip">{view.category}</span>
+                <h1>{view.title}</h1>
+                <p>{view.tagline}</p>
                 <div className="bp-chips">
-                  <span>🗓 {t.meta(pkg.duration_days, pkg.duration_nights)}</span>
-                  <span>📍 {pkg.destinations.join(" · ")}</span>
-                  <span>🏷 {pkg.id}</span>
+                  <span><Icon name="calendar" size={16} />{t.meta(pkg.duration_days, pkg.duration_nights)}</span>
+                  <span><Icon name="map" size={16} />{view.destinations.join(" · ")}</span>
+                  <span>{pkg.id}</span>
                 </div>
               </div>
             </section>
 
             <div className="bp-layout">
               <main className="bp-main">
+                <div className="bp-map-top">
+                  <TripMap days={pkg.itinerary.map(day => ({...day, places:dayPlaces(day, pkg)}))} onFocusDay={() => {}} />
+                </div>
                 {ai && (
                   <div className="bp-ai">
                     <span className="bp-ai-ico"><Icon name="flash" size={18} /></span>
@@ -364,7 +371,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 {data.groups.map((g) => (
                   <section key={g.id} className="bp-card">
-                    <h3><span aria-hidden="true">{GROUP_ICON[g.id] || "•"}</span> {g.label}{g.multi && <small> · {t.multiHint}</small>}</h3>
+                    <h3><Icon name={GROUP_ICON[g.id] || "compass"} size={18} /> {g.label}{g.multi && <small> · {t.multiHint}</small>}</h3>
                     <div className="bp-tiles">
                       {g.options.map((o) => {
                         const v = sel[g.id];
@@ -384,10 +391,9 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 <section className="bp-card">
                   <h3>{p.itinerary}</h3>
-                  <TripMap days={pkg.itinerary.map(day => ({...day, places:dayPlaces(day, pkg)}))} onFocusDay={() => {}} />
                   <details><summary>View {pkg.duration_days} days & inclusions</summary>
                   <ol className="bp-days">
-                    {pkg.itinerary.map((day) => (
+                    {view.itinerary.map((day) => (
                       <li key={day.day}>
                         <span className="bp-day-n">{day.day}</span>
                         <div><strong>{day.title}</strong><p>{day.activities}</p></div>
@@ -395,12 +401,12 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                     ))}
                   </ol>
                   <h4>{p.included}</h4>
-                  <ul className="bp-incl">{pkg.inclusions.map((x) => <li key={x}>{x}</li>)}</ul>
+                  <ul className="bp-incl">{view.inclusions.map((x) => <li key={x}>{x}</li>)}</ul>
                   </details>
                 </section>
 
                 <section className="bp-card">
-                  <h3>🎒 {a.packTitle}</h3>
+                  <h3><Icon name="briefcase" size={18} /> {a.packTitle}</h3>
                   {!list && (
                     <div className="bp-two">
                       <label>
@@ -512,7 +518,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
             <section className="bp-chat" aria-label={p.chatTitle}>
               <header>
                 <span className="aura-avatar" aria-hidden="true">A</span>
-                <div><strong>{p.chatTitle}</strong><small>● Online</small></div>
+                <div><strong>{p.chatTitle}</strong><small>Online</small></div>
                 <button onClick={() => setChatOpen(false)} aria-label={t.close}><Icon name="close" size={18} /></button>
               </header>
               {deletedChat && <div className="builder-undo"><button disabled={asking} onClick={() => { setChat(deletedChat); setDeletedChat(null); }}>Undo deletion</button></div>}
@@ -572,7 +578,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
             )}
             {modal === "done" && (
               <div>
-                <h3>✓ {t.doneTitle}</h3>
+                <h3>{t.doneTitle}</h3>
                 <p>{t.doneText(ref)}</p>
                 <button className="bp-btn" onClick={onClose}>{p.backChat}</button>
               </div>
