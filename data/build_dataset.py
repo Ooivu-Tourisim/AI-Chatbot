@@ -80,6 +80,9 @@ for language, turns in localized.items():
     add("localized_jaffna_"+language, language, list(zip(["user","assistant","user","assistant"],turns)), topic="localized_handoff")
 
 from common_questions import COMMON_QUESTIONS, LOCALIZED_QUESTIONS
+from tamil_questions import TAMIL_QUESTIONS
+for topic, user1, ai1, user2, ai2 in TAMIL_QUESTIONS:
+    add("tamil_"+topic, "ta", [("user",user1),("assistant",ai1),("user",user2),("assistant",ai2)], topic=topic)
 for topic, user1, ai1, user2, ai2 in COMMON_QUESTIONS:
     add("faq_"+topic, "en", [("user",user1),("assistant",ai1),("user",user2),("assistant",ai2)], topic=topic)
 for language, items in LOCALIZED_QUESTIONS.items():
@@ -89,6 +92,10 @@ for language, items in LOCALIZED_QUESTIONS.items():
 with (ROOT / "jaffna_conversations.jsonl").open("w",encoding="utf-8") as target:
     for example in examples:
         target.write(json.dumps(example,ensure_ascii=False)+"\n")
+with (ROOT / "jaffna_conversations_ta.jsonl").open("w",encoding="utf-8") as target:
+    for example in examples:
+        if example["language_code"] == "ta":
+            target.write(json.dumps(example,ensure_ascii=False)+"\n")
 readable = ["# Jaffna conversation dataset", "", "Illustrative customer/Aura dialogues grounded in the supplied Northern tourism concept. Proposed experiences and ranges require supplier confirmation; this is example and retrieval data, not model training or an active booking catalogue.", "", f"{len(products)} detailed concept records; {len(examples)} conversations; 11 language variants. Native-speaker editorial review is recommended before using translations in marketing.", ""]
 for example in examples:
     readable.extend([f"## {example['id']} ({example['language_code']})", ""])

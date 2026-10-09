@@ -5,6 +5,15 @@ from local_knowledge import DATA_PATH, build_local_context
 
 
 class LocalKnowledgeTests(unittest.TestCase):
+    def test_general_questions_preserve_privacy_and_do_not_invent_facilities(self):
+        context = build_local_context("OCD room cleanliness")
+        self.assertIn("Share practical preferences rather than a diagnosis", context)
+        self.assertIn("unknown facility is a request to verify", context)
+        self.assertIn("fresh linen", context)
+        examples = [json.loads(line) for line in DATA_PATH.with_name("jaffna_conversations.jsonl").read_text(encoding="utf-8").splitlines()]
+        topics = {e["topic"] for e in examples}
+        self.assertTrue({"reduce_price", "facilities", "private_partner", "ocd_cleanliness", "cancel_refund", "wheelchair"}.issubset(topics))
+
     def test_prices_keep_units_and_concepts_cannot_be_booked_as_packages(self):
         context = build_local_context("paddy planting")
         self.assertIn("LKR 3,000–6,000 per person", context)
