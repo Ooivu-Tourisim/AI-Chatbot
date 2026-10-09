@@ -1,24 +1,32 @@
 import { useEffect, useRef, useState } from "react";
+import Icon from "./Icon.jsx";
+import { recordSpeech } from "./recordSpeech";
 
-export default function VoiceInput({ value, onChange, language, disabled }) {
-  const recognition = useRef(null);
-  const [listening, setListening] = useState(false);
-  const [status, setStatus] = useState("");
-  useEffect(() => () => { const r = recognition.current; recognition.current = null; if (r) { r.onresult = r.onend = r.onerror = null; r.abort(); } }, []);
-  useEffect(() => { recognition.current?.abort(); }, [disabled, language]);
-  function toggle() {
-    if (recognition.current) { recognition.current.stop(); return; }
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) { setStatus("Voice typing is unavailable in this browser. You can still type your message."); return; }
+export default function VoiceInput({ value, onChange, disabled, apiBase, onDetected, inputLocale }) {
+  const recording = useRef(null), generation = useRef(0);
+  const [listening, setListening] = useState(false), [status, setStatus] = useState("");
+  const cancel = () => { generation.current++; recording.current?.abort(); recording.current = null; };
+  useEffect(() => cancel, []);
+  useEffect(() => { if (disabled) { cancel(); setListening(false); } }, [disabled]);
+  async function toggle() {
+    if (recording.current) { recording.current.stop(); return; }
+    const id = ++generation.current, base = value.trim();
+    setListening(true);
+    window.dispatchEvent(new Event("aura-conversation-stop"));
     window.speechSynthesis?.cancel(); window.dispatchEvent(new Event("aura-speech-stop"));
-    const r = new Recognition();
-    const base = value.trim();
-    r.lang = language || "en-US"; r.continuous = true; r.interimResults = true;
-    r.onresult = event => { if (recognition.current !== r) return; const words = Array.from(event.results).map(result => result[0].transcript).join(" "); onChange([base, words].filter(Boolean).join(" ")); };
-    r.onerror = event => { setStatus(event.error === "not-allowed" ? "Microphone permission was denied. Allow it in your browser to use voice typing." : event.error === "no-speech" ? "No speech detected. Try again." : event.error === "aborted" ? "" : "Voice typing couldn't connect. Please try again or type."); };
-    r.onend = () => { if (recognition.current === r) { recognition.current = null; setListening(false); } };
-    recognition.current = r; setStatus(""); setListening(true);
-    try { r.start(); } catch { recognition.current = null; setListening(false); setStatus("Voice typing couldn't start. Please try again."); }
+    try {
+      const session = await recordSpeech(apiBase, result => {
+        if (id !== generation.current) return;
+        recording.current = null; setListening(false); setStatus(`Detected ${result.language}`);
+        const text = [base, result.text].filter(Boolean).join(" ");
+        if (onDetected) onDetected({ ...result, text });
+        else onChange(text);
+      }, error => {
+        if (id !== generation.current) return;
+        recording.current = null; setListening(false); setStatus(error.message);
+      }, message => { if (id === generation.current) setStatus(message); }, inputLocale);
+      if (id !== generation.current) session.abort(); else recording.current = session;
+    } catch (error) { if (id === generation.current) { setListening(false); setStatus(error.message); } }
   }
-  return <div className="voice-input"><button type="button" className={`aura-mic ${listening ? "is-listening" : ""}`} aria-label={listening ? "Stop microphone" : "Speak your message"} title={listening ? "Stop microphone" : "Speak your message"} aria-pressed={listening} disabled={disabled && !listening} onClick={toggle}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">{listening ? <path d="M6 6h12v12H6z" /> : <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" /></>}</svg>{listening && <span>Stop</span>}</button><span className="voice-status" role="status">{listening ? "Listening… Review your words before sending." : status}</span></div>;
+  return <div className="voice-input"><button type="button" className={`aura-mic ${listening ? "is-listening" : ""}`} title="Dictate into the message box" aria-label={listening ? "Stop dictation" : "Dictate into the message box"} aria-pressed={listening} disabled={disabled || (listening && !recording.current)} onClick={toggle}><Icon name={listening ? "close" : "mic"} size={20} /></button><span className="voice-status" role="status">{status}</span></div>;
 }

@@ -1,12 +1,13 @@
+import { plannerText } from "./plannerI18n.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { directionsUrl, routeStops } from "./tripPlaces.js";
 
 const cache = new Map();
-const time = seconds => `${Math.round(seconds / 60)} min`;
+const time = (seconds, lang) => `${Math.round(seconds / 60)}${lang === "ko" ? "분" : " min"}`;
 
-export default function TripMap({ days, onFocusDay }) {
+export default function TripMap({ days, onFocusDay , lang = "en" }) {
   const node = useRef(null);
   const map = useRef(null);
   const [driving, setDriving] = useState(false);
@@ -101,18 +102,18 @@ export default function TripMap({ days, onFocusDay }) {
   const roads = legs.filter(p => p.kind === "road");
   const url = stops.length <= 5 ? directionsUrl(stops) : null;
   return <section className="route-card">
-    <div className="route-heading"><h3>Your route</h3>{url && <a href={url} target="_blank" rel="noreferrer">Open in Maps</a>}</div>
-    <div className="trip-map" ref={node} role="region" aria-label="Selected trip stops on map" />
-    {!days.length && <p className="route-caption">Add a day to plot your route.</p>}
+    <div className="route-heading"><h3>{lang === "ko" ? "내 여행 경로" : "Your route"}</h3>{url && <a href={url} target="_blank" rel="noreferrer">{lang === "ko" ? "지도에서 열기" : "Open in Maps"}</a>}</div>
+    <div className="trip-map" ref={node} role="region" aria-label={plannerText(lang, "Selected trip stops on map")} />
+    {!days.length && <p className="route-caption">{plannerText(lang, "Add a day to plot your route.")}</p>}
     {!!days.length && <>
-      <div className="route-stats"><span>{stops.length} stops</span><span>🚗 {roads.length ? `${Math.round(roads.reduce((n, p) => n + p.distance, 0) / 1000)} km by road` : loading ? "Finding roads…" : stops.length <= 1 ? "Local stay" : "No road estimate"}</span>{stops.some(s => s.island) && <span>⛴ Island transfer</span>}</div>
-      <div className="route-drive"><button type="button" disabled={!driveRoads.length || loading} onClick={() => { setDriveNote(""); setDriving(v => !v); }}>{driving ? "Stop jeep" : "Preview drive"}</button><small>Jeep animation · road preview</small></div>
+      <div className="route-stats"><span>{stops.length}{lang === "ko" ? "개 장소" : " stops"}</span><span>🚗 {roads.length ? `${Math.round(roads.reduce((n, p) => n + p.distance, 0) / 1000)} ${lang === "ko" ? "km 도로 이동" : "km by road"}` : loading ? plannerText(lang, "Finding roads…") : stops.length <= 1 ? plannerText(lang, "Local stay") : plannerText(lang, "No road estimate")}</span>{stops.some(s => s.island) && <span>⛴ Island transfer</span>}</div>
+      <div className="route-drive"><button type="button" disabled={!driveRoads.length || loading} onClick={() => { setDriveNote(""); setDriving(v => !v); }}>{driving ? plannerText(lang, "Stop jeep") : plannerText(lang, "Preview drive")}</button><small>{plannerText(lang, "Jeep animation · road preview")}</small></div>
       {driveNote && <p className="route-caption" role="status">{driveNote}</p>}
-      <p className="route-caption">{loading ? "Finding roads…" : "Area pins · travel times exclude traffic and visits"}{tilesFailed && " · Map tiles unavailable"}</p>
-      {days.some(d => !d.places?.length) && <p className="route-warning">Some days have no mapped place.</p>}
-      <details className="route-legs"><summary>Route details · {legs.length}</summary>{legs.map((p, i) => <div key={i}><span>{p.from.name} – {p.to.name}</span><strong>{p.kind === "road" ? `${Math.round(p.distance / 1000)} km · ${time(p.duration)}` : p.kind === "ferry" ? "Ferry / boat · confirm connection" : p.kind === "pending" ? "Finding route…" : "Road route unavailable"}</strong>{p.duration > 7200 && <small className="route-warning">Long transfer — consider changing day order.</small>}<a href={directionsUrl([p.from, p.to])} target="_blank" rel="noreferrer">View route ↗</a></div>)}</details>
-      {stops.some(s => s.island) && <p className="route-warning">Ferry / boat connection needs confirmation.</p>}
-      {legs.some(p => p.kind === "preview") && <p className="route-caption">Grey dotted lines show stop order, not roads.</p>}
+      <p className="route-caption">{loading ? plannerText(lang, "Finding roads…") : plannerText(lang, "Area pins · travel times exclude traffic and visits")}{tilesFailed && (lang === "ko" ? " · 지도를 불러올 수 없습니다" : " · Map tiles unavailable")}</p>
+      {days.some(d => !d.places?.length) && <p className="route-warning">{plannerText(lang, "Some days have no mapped place.")}</p>}
+      <details className="route-legs"><summary>{lang === "ko" ? "경로 상세" : "Route details"} · {legs.length}</summary>{legs.map((p, i) => <div key={i}><span>{p.from.name} – {p.to.name}</span><strong>{p.kind === "road" ? `${Math.round(p.distance / 1000)} km · ${time(p.duration, lang)}` : p.kind === "ferry" ? plannerText(lang, "Ferry / boat · confirm connection") : p.kind === "pending" ? plannerText(lang, "Finding route…") : plannerText(lang, "Road route unavailable")}</strong>{p.duration > 7200 && <small className="route-warning">{plannerText(lang, "Long transfer — consider changing day order.")}</small>}<a href={directionsUrl([p.from, p.to])} target="_blank" rel="noreferrer">{plannerText(lang, "View route ↗")}</a></div>)}</details>
+      {stops.some(s => s.island) && <p className="route-warning">{plannerText(lang, "Ferry / boat connection needs confirmation.")}</p>}
+      {legs.some(p => p.kind === "preview") && <p className="route-caption">{plannerText(lang, "Grey dotted lines show stop order, not roads.")}</p>}
     </>}
   </section>;
 }

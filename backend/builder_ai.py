@@ -17,7 +17,7 @@ import builder
 import currency
 import database
 
-FALLBACK_MODEL = "gemini-flash-lite-latest"
+FALLBACK_MODEL = "gemini-3-flash-preview"
 HEDGE_AFTER = 4.0  # seconds before racing a second model
 
 OPTION_RULES = """- Use ONLY the package ids and option ids listed in the catalogue. Never invent hotels, meals, prices, availability, travel times or services.
@@ -31,7 +31,7 @@ DRAFT_PROMPT = """You turn a traveler's request into a DRAFT inside our Package 
 {rules}
 - Choose exactly one package that fits best. Pick travelers (default 2 if unclear) and one option per required group; "extras" is a list (may be empty).
 - If a budget is stated, return it as {{"amount": number, "currency": "ISO code"}} exactly as the traveler wrote it; otherwise null.
-- Write "why_it_fits", "assumptions" and "unmet" in {language}.
+- Write "why_it_fits", "assumptions" and "unmet" in the language of the latest customer request, in its original script. Follow explicit requests for another reply language. Use {language} only when the request is too short or ambiguous to identify. Never force the interface language on clear input in another language.
 
 JSON shape:
 {{"package_id": str, "travelers": int, "travel_month": str, "budget": {{"amount": number, "currency": str}} | null,
@@ -43,11 +43,12 @@ JSON shape:
 {options}
 """
 
-ASSIST_PROMPT = """You are Aura, helping a traveler edit their draft in the Package Builder. Reply in {language}. Output JSON only.
+ASSIST_PROMPT = """You are Aura, helping a traveler edit their draft in the Package Builder. Output JSON only.
+Identify the language of the latest customer message and reply in that language and original script. Follow explicit requests for another reply language. Use {language} only for ambiguous input. This overrides the interface language, English catalogue and previous replies.
 
 {rules}
 - You may suggest changes only by returning "changes": travelers and/or selections (same ids as the catalogue). Leave "changes" null if the traveler only asks a question.
-- Keep the reply short (max ~90 words). Explain trade-offs plainly (comfort, location, convenience), and say that the exact new total is shown for them to review.
+- Keep the user-facing reply to at most TWO short sentences, ideally under 45 words, suitable for voice playback. Ask at most ONE question about ONE missing detail per turn; never bundle questions or repeat details already supplied in the current draft. Explain a relevant trade-off briefly and invite review of the exact total in the interface.
 - Never claim anything is booked or confirmed; the traveler decides whether to apply a change. Word changes as suggestions ("I suggest…", "you could…"), never as already done — nothing changes until the traveler presses Apply.
 
 Current draft: package {package_id}, {travelers} traveler(s), selections {selections}, current total LKR {total}. Budget: {budget}.
@@ -127,6 +128,7 @@ def _json(client, model: str, system: str, user: str, timeout_ms: int, schema) -
                 system_instruction=system,
                 response_mime_type="application/json",
                 response_schema=schema,
+                thinking_config=types.ThinkingConfig(thinking_level="minimal"),
                 max_output_tokens=2500,
                 http_options=types.HttpOptions(timeout=max(timeout_ms, 10000)),
             ),
@@ -134,25 +136,8 @@ def _json(client, model: str, system: str, user: str, timeout_ms: int, schema) -
         text = re.sub(r"^```(?:json)?|```$", "", (resp.text or "").strip(), flags=re.M).strip()
         return schema.model_validate_json(text).model_dump(exclude_none=True)
 
-    deadline = time.monotonic() + timeout_ms / 1000
-    pool = ThreadPoolExecutor(max_workers=2)
-    try:
-        futures = [pool.submit(one, model)]
-        done, _ = wait(futures, timeout=HEDGE_AFTER)
-        if not done or futures[0].exception():
-            futures.append(pool.submit(one, FALLBACK_MODEL))
-        last: Exception | None = None
-        try:
-            for f in as_completed(futures, timeout=max(deadline - time.monotonic(), 0.1)):
-                try:
-                    return f.result()
-                except Exception as exc:  # API error or malformed JSON: wait for the other call
-                    last = exc
-        except FuturesTimeout as exc:
-            last = exc
-        raise RuntimeError("ai_unavailable") from last
-    finally:
-        pool.shutdown(wait=False, cancel_futures=True)
+    # One account/model, matching Bus Book; no parallel fallback requests.
+    return one(model)
 
 
 def _to_lkr(budget: Any) -> int | None:

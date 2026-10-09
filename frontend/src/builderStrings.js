@@ -87,3 +87,16 @@ export const BUILDER_I18N = {
     openDraft: "Im Paket-Konfigurator öffnen",
   },
 };
+
+BUILDER_I18N.ko = {
+ title:"여행 상품 만들기", badge:"예약 전", close:"만들기 닫기", choose:"맞춤 설정할 여행 상품을 선택하세요", loading:"불러오는 중…",
+ meta:(d,n)=>`${n}박 ${d}일`, back:"뒤로", travelers:"여행 인원", date:"희망 여행 날짜", dateOpt:"(선택 사항)",
+ basis:"상품 가격은 전체 예약에 적용되며 일부 옵션만 1인당 계산됩니다. 숙박, 식사와 교통은 저희가 준비하며 하나의 상품 가격으로 결제합니다.",
+ perNight:"1인 1박당", perPerson:"1인당", flat:"예약당", included:"포함", multiHint:"여러 항목 선택 가능",
+ breakdown:"가격 내역", total:"예상 총액", review:"검토 및 요청", quoteErr:"가격을 갱신할 수 없습니다. 계속 둘러보고 직접 수정할 수 있습니다.",
+ yourDetails:"예약자 정보", name:"이름", email:"이메일", phone:"전화번호 (선택 사항)", notes:"추가 요청 (선택 사항)",
+ confirm:"이 요청을 제출하는 데 동의합니다. 지금은 결제되지 않으며 담당자가 예약 가능 여부와 결제 방법을 확인하기 위해 연락합니다.",
+ submit:"예약 요청 보내기", submitting:"보내는 중…", edit:"옵션 수정", doneTitle:"요청이 접수되었습니다",
+ doneText:ref=>`접수 번호는 ${ref}입니다. 담당자가 예약 가능 여부와 결제 방법을 안내해 드립니다. 아직 결제되지 않았습니다.`,
+ anotherBtn:"다른 여행 만들기", errors:{bad_email:"올바른 이메일 주소를 입력하세요.",confirmation_required:"확인란에 동의해 주세요.",generic:"요청을 보낼 수 없습니다. 다시 시도해 주세요."},openDraft:"여행 상품 만들기에서 열기"
+};

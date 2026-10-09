@@ -1,3 +1,4 @@
+import { createReplySpeaker } from "./replySpeaker.js";
 import { useEffect, useRef, useState } from "react";
 
 async function copyText(text, setStatus) {
@@ -19,23 +20,25 @@ export function ChatToolbar({ messages, disabled, onClear, onUndo, canUndo }) {
   </div>;
 }
 
-export default function ChatActions({ text, editable, disabled, onEdit, onDelete, onRetry, maxLength = 8000 }) {
+export default function ChatActions({ text, editable, disabled, onEdit, onDelete, onRetry, maxLength = 8000, languageCode, apiBase = "" }) {
   const [reading, setReading] = useState(false);
   const utterance = useRef(null);
   useEffect(() => {
-    const stop = () => { utterance.current = null; setReading(false); };
+    const stop = () => { utterance.current?.stop(); utterance.current = null; setReading(false); };
     window.addEventListener("aura-speech-stop", stop);
-    return () => { window.removeEventListener("aura-speech-stop", stop); if (utterance.current) { utterance.current.onend = null; utterance.current.onerror = null; window.speechSynthesis?.cancel(); window.dispatchEvent(new Event("aura-speech-stop")); } };
+    return () => { window.removeEventListener("aura-speech-stop", stop); utterance.current?.stop(); };
   }, []);
   function read() {
-    if (!window.speechSynthesis) { setStatus("Read aloud is unavailable in this browser."); return; }
-    const wasReading = reading;
-    window.speechSynthesis.cancel(); window.dispatchEvent(new Event("aura-speech-stop"));
-    if (wasReading) { utterance.current = null; return; }
-    const speech = new SpeechSynthesisUtterance(text);
-    utterance.current = speech;
-    speech.onend = speech.onerror = () => { if (utterance.current === speech) { utterance.current = null; setReading(false); } };
-    setReading(true); window.speechSynthesis.speak(speech);
+    if (reading) { utterance.current?.stop(); utterance.current = null; setReading(false); return; }
+    const speaker = createReplySpeaker(apiBase, languageCode);
+    utterance.current = speaker;
+    setStatus(""); setReading(true);
+    speaker.feed(text);
+    speaker.end().then(success => {
+      if (utterance.current !== speaker) return;
+      utterance.current = null; setReading(false);
+      if (!success) setStatus("Audio is temporarily unavailable. Please try again; your text reply is still available.");
+    });
   }
   const [feedback, setFeedback] = useState(null);
   const [editing, setEditing] = useState(false);

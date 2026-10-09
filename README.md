@@ -1,5 +1,35 @@
 # Aura — AI travel assistant
 
+## Multilingual text and voice chat
+
+Customers can type or use the microphone. Typed messages receive text replies;
+the microphone button transcribes into the editable message box without sending.
+Only **Talk with Aura** sends spoken messages and receives both text and audio. Each turn identifies
+the input language and replies in that language, unless the customer asks for
+another language in their message. There are no language or response-format
+selectors. **Talk with Aura** enables successive voice turns; **Stop audio**
+interrupts playback. Typing during a voice conversation ends the voice loop.
+Microphone capture requests echo cancellation and noise suppression and ends
+after silence or the recording duration limit.
+
+Configure `LLM_API_KEY`, `LLM_MODEL`, `AGENT_LLM_BASE_URL`, `AZURE_SPEECH_KEY`
+and `AZURE_SPEECH_REGION` in the backend environment. Tourism uses Bus Book's
+Groq `openai/gpt-oss-120b` for chat, drafts and translation, and Azure Speech for
+recognition and synthesis. No alternate model or Gemini request is used.
+English, Sinhala and Tamil use the same configured voices as Bus Book; other
+reply languages use explicit validated female voices where configured, otherwise
+an available Azure voice with the configured gender.
+Azure identifies speech automatically against the configured candidate locales,
+including English, Sinhala and Tamil. Set `AGENT_STT_AUTO_LOCALES` to extend the
+candidates for your deployment. Supported languages depend on the Azure resource
+and region.
+Microphone access requires HTTPS or localhost and browser permission.
+
+The supplied Bus Book agent documents cloud recognition/synthesis and configured
+language locales, but its runtime speech source is absent from this copy. This
+integration therefore uses Tourism's existing endpoint contracts with Groq and Azure; no booking,
+telephony or Bus Book business logic is imported.
+
 The visual planner uses photo cards, interest filters, an AI route draft, a price
 chart, and a Leaflet/OpenStreetMap map. Adding, removing or reordering days updates
 the ordered map stops. Representative area coordinates are sourced in
@@ -149,3 +179,10 @@ If your real frontend doesn't proxy `/api`, pass the API origin directly and set
    `ANTHROPIC_MODEL` in `.env`.
 
 Chat voice controls: Read aloud toggles to Stop reading and stops when the message or chat closes. The microphone uses browser speech recognition in the selected language, inserts a transcript into the draft, and never sends it automatically. Users grant microphone access in their browser; unsupported browsers and permission/network failures show a message. Browser recognition may use a remote speech service.
+
+Run `python check_voice_languages.py --conversation` from `backend` to test
+all configured languages using synthetic sentences only. The check synthesizes
+sample speech, transcribes it with automatic language detection, requests a short
+Groq reply, and synthesizes that reply. Results are saved to
+`backend/voice_language_report.json`. This checks cloud processing; it does not
+replace testing microphone permissions and audio playback in the target browser.

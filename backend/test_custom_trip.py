@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import builder
@@ -10,6 +11,18 @@ import database
 
 
 class CustomTripTests(unittest.TestCase):
+    def test_route_carries_explicit_group_count_and_keeps_only_catalogue_days(self):
+        for count, expected in [(6, 6), (99, None), (True, None)]:
+            content = {"title": "Family route", "travelers": count, "days": [
+                {"package_id": "NOC-CUL-03", "day": 1}, {"package_id": "invented-package", "day": 1}]}
+            with patch.object(self.api, "client") as provider:
+                provider.models.generate_content.return_value = SimpleNamespace(text=json.dumps(content))
+                result = self.api.draft.build_draft(provider, self.api.MODEL, "Six travelers, culture and food", "English", 13000)
+            self.assertEqual(result["travelers"], expected)
+            self.assertEqual(len(result["days"]), 1)
+            self.assertEqual(result["days"][0]["package_id"], "NOC-CUL-03")
+            self.assertEqual(result["status"], "draft")
+
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory(dir=os.path.dirname(__file__))
@@ -32,6 +45,53 @@ class CustomTripTests(unittest.TestCase):
                       days=[{"package_id": "NOC-CUL-03", "day": 1}, {"package_id": "NOC-ISL-02", "day": 1}])
         values.update(changes)
         return self.api.CustomQuoteRequest(**values)
+
+    def test_builder_uses_configured_model_and_selected_language_for_foreign_input(self):
+        req = self.api.BuilderDraftRequest(request="Quiero un viaje de tres días", language="German")
+        with patch.object(self.api, "client", object()), patch.object(self.api, "BUILDER_MODEL", "openai/gpt-oss-120b"), patch.object(self.api.builder_ai, "create_draft", return_value={}) as generate:
+            self.api.builder_draft(req)
+        args = generate.call_args.args
+        self.assertEqual(args[1], "openai/gpt-oss-120b")
+        self.assertEqual(args[2], req.request)
+        self.assertEqual(args[3], "German")
+
+    def test_korean_option_labels_keep_prices_and_ids(self):
+        english = builder.get_builder("NOC-JAF-01", "en")
+        korean = builder.get_builder("NOC-JAF-01", "ko")
+        for original, translated in zip(english["groups"], korean["groups"]):
+            self.assertEqual(original["id"], translated["id"])
+            self.assertNotEqual(original["label"], translated["label"])
+            for before, after in zip(original["options"], translated["options"]):
+                self.assertEqual(before["id"], after["id"])
+                self.assertEqual(before["price_lkr"], after["price_lkr"])
+                self.assertNotEqual(before["label"], after["label"])
+
+    def test_code_switched_transcript_preserves_both_languages(self):
+        content = {
+            "text": "I want a beach trip. 예산은 얼마인가요?",
+            "language": "Korean", "locale": "ko-KR", "language_code": "ko",
+            "language_codes": ["en", "ko"],
+            "segments": [{"text": "I want a beach trip.", "language_code": "en"},
+                         {"text": "예산은 얼마인가요?", "language_code": "ko"}],
+        }
+        with patch.object(self.api, "transcribe_audio", return_value=content) as provider:
+            result = self.api.transcribe(self.api.AudioRequest(audio="YWJj", mime_type="audio/webm", locale="ko-KR"))
+        self.assertEqual(result.text, content["text"])
+        self.assertEqual(result.language_codes, ["en", "ko"])
+        self.assertEqual(result.language_code, "ko")
+        self.assertEqual(len(result.segments), 2)
+        provider.assert_called_once_with(b"abc", "audio/webm", "ko-KR")
+
+    def test_language_identification_is_repeated_when_speech_switches(self):
+        with patch.object(self.api, "transcribe_audio") as provider:
+            provider.side_effect = [
+                {"text": "Hello", "language": "en", "locale": "en-IN", "language_code": "en"},
+                {"text": "Hola", "language": "es", "locale": "es-ES", "language_code": "es"},
+            ]
+            request = self.api.AudioRequest(audio="YWJj", mime_type="audio/webm")
+            self.assertEqual(self.api.transcribe(request).language_code, "en")
+            self.assertEqual(self.api.transcribe(request).language_code, "es")
+        self.assertEqual(provider.call_count, 2)
 
     def test_catalogue_icons_are_persisted_and_preserve_customization(self):
         self.assertEqual(database.get_package_by_id("NOC-JAF-01")["icon_name"], "heritage")
