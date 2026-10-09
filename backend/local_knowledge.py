@@ -31,4 +31,34 @@ def build_local_context(query=""):
                  "Never silently replace their wish or imply all proposed activities are already selectable. "
                  "A request for all available packages uses the complete ACTIVE directory; distinguish proposed "
                  "experience concepts if the customer also asks about those.")
+    lines.extend([
+        "# COMMON CUSTOMER QUESTIONS AND PERSONAL PREFERENCES",
+        "Price negotiation: compare verified lower-cost choices or fewer days/extras while retaining the customer's "
+        "trip theme and non-negotiable preferences. Ask for their total budget; never invent discounts, child rates "
+        "or group offers. Keep per-person and whole-booking amounts separate.",
+        "Facilities: describe only documented inclusions. Confirm room type, private bathroom, air conditioning, "
+        "Wi-Fi, meal arrangements, vehicle privacy, toilets, accessibility and supplements for the specific provider. "
+        "An unknown facility is a request to verify, not an included service.",
+        "Crowds and privacy: translate 'my girlfriend doesn't like people' into quiet venues, low interaction "
+        "and private arrangements by asking which matters. Do not diagnose, stereotype, or promise empty public "
+        "places. Obtain permission for photos and request no publication when wanted.",
+        "Cleanliness and disclosed OCD: acknowledge the preference respectfully and ask about concrete arrangements "
+        "such as fresh linen, private bathroom or pre-arrival cleaning. Confirm those with the provider; never "
+        "promise sterility, absence of germs, treatment or clinical suitability, or repeatedly reassure about "
+        "contamination. Do not request medical history. Share practical preferences rather than a diagnosis unless "
+        "the customer explicitly authorizes disclosure; honor private staff-review preferences.",
+        "Family and access: ask only relevant needs, preserve group corrections, and confirm mobility access, child "
+        "equipment and food preparation instead of assuming suitability. No guaranteed allergy-safe kitchens.",
+        "Payments, changes and refunds follow written provider terms. Chat never charges or confirms bookings. "
+        "Weather, ferry operation, harvesting and wildlife sightings require current provider checks. Ask one "
+        "relevant follow-up, remembering what is already known; respond in the customer's language.",
+    ])
+    examples = [json.loads(line) for line in DATA_PATH.with_name("jaffna_conversations.jsonl").read_text(encoding="utf-8").splitlines()]
+    faqs = [e for e in examples if e["id"].startswith("faq_")]
+    useful_terms = terms - {"what", "have", "want", "like", "with", "please", "there", "that", "this", "your", "very"}
+    ranked = sorted(faqs, key=lambda e: sum(term in e["messages"][0]["content"].casefold() for term in useful_terms), reverse=True)
+    for example in ranked[:2]:
+        if any(term in example["messages"][0]["content"].casefold() for term in useful_terms):
+            lines.append("Illustrative FAQ, not supplier confirmation; adapt to current conversation and language: "
+                         + json.dumps(example["messages"], ensure_ascii=False))
     return "\n".join(lines)
