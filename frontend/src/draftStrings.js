@@ -1,4 +1,4 @@
-﻿// Draft panel copy per language. Functions take the values to interpolate.
+// Draft panel copy per language. Functions take the values to interpolate.
 // Dynamic content (titles, activities, checklist items) comes from the backend in the chosen language.
 
 export const DRAFT_I18N = {
@@ -144,3 +144,11 @@ export const DRAFT_I18N = {
   },
 };
 
+
+DRAFT_I18N.ko = {
+ badge:"초안 · 예약 전",building:"초안 작성 중…",generating:"여행 일정 생성 중…",progress:s=>`검증된 상품을 확인하고 있습니다 · 최대 15초 중 ${s}초. 창을 닫고 계속 둘러볼 수 있습니다.`,
+ tryAgain:"다시 시도",timeout:"예상보다 시간이 오래 걸립니다. 아직 예약되지 않았습니다. 다시 시도하거나 직접 여행을 구성할 수 있습니다.",aiDown:"AI 제안을 일시적으로 사용할 수 없습니다. 직접 둘러보고 수정하고 예약할 수 있습니다.",noMatch:"조건에 맞는 상품을 찾지 못했습니다. 관심사, 여행 기간 또는 예산을 알려 주세요.",couldnt:"충족하지 못한 요청:",dropped:l=>`상품에서 확인되지 않은 일정이 제외되었습니다: ${l}.`,
+ tabs:["일정","예산","준비물"],dayN:n=>`${n}일차`,from:"출발",up:"위로 이동",down:"아래로 이동",removeDay:"일정 삭제",allRemoved:"모든 일정이 삭제되었습니다. 닫고 Aura에게 새 초안을 요청하세요.",
+ budgetLabel:"목표 예산 (LKR)",budgetPh:"예: 250000",within:(c,b)=>`예산 이내입니다 ✓ (${b} 중 ${c}).`,over:(c,b,o)=>`현재 ${c} · 예산 ${b} · ${o} 초과`,noSwap:"더 저렴한 대체 일정이 없습니다. 하루를 제외할 수 있습니다.",save:s=>`${s} 절약`,newTotal:t=>`변경 후 총액 ${t}`,meets:"예산 이내",instead:"대안:",tradeoff:(a,b)=>`변경 내용: “${a}” 대신 “${b}”.`,accept:"이 변경 적용",enterBudget:"절약 가능한 항목을 보려면 예산을 입력하세요. 변경을 승인하기 전에는 적용되지 않습니다.",
+ monthLabel:"여행 월 (선택 사항)",monthPh:"예: 1월",create:"준비물 목록 만들기",creating:"생성 중…",packHint:"여행 일정과 스리랑카의 일반적인 기후를 기준으로 합니다. 출발 전에 최신 일기 예보를 확인하세요.",packed:(d,n)=>`${n}개 중 ${d}개 준비됨`,addPh:"내 준비물 추가…",add:"추가",mine:"내 준비물",remove:"삭제",total:"예상 총액",note:"맞춤 일정은 상품 가격을 일수로 나누어 계산합니다. 여행 날짜의 예약 가능 여부와 최종 가격은 별도 확인이 필요합니다. 확인 전에는 예약되거나 결제되지 않습니다.",close:"초안 닫기"
+};

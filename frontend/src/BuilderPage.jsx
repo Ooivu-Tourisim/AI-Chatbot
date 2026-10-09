@@ -1,3 +1,4 @@
+import { plannerText } from "./plannerI18n.js";
 import TravelDate from "./TravelDate.jsx";
 import TripPreparation, { emptyPreparation } from "./TripPreparation.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -6,6 +7,7 @@ import { BUILDER_I18N } from "./builderStrings.js";
 import { AI_I18N } from "./builderAiStrings.js";
 import { DRAFT_I18N } from "./draftStrings.js";
 import { PAGE_I18N } from "./builderPageStrings.js";
+import { LANGS } from "./i18n.js";
 import "./BuilderPage.css";
 import "./theme-builder.css";
 import CustomTrip from "./CustomTrip.jsx";
@@ -38,7 +40,10 @@ async function call(apiBase, path, body, signal) {
   return data;
 }
 
-export default function BuilderPage({ apiBase, lang, language, initialPackage, request, currency = "LKR", onClose }) {
+export default function BuilderPage({ apiBase, lang, initialPackage, request, currency = "LKR", onClose }) {
+  // Builder language follows the explicit selection, independently of chat/STT detection.
+  const selectedLanguage = LANGS.find(item => item.code === lang) || LANGS.find(item => item.code === "en");
+  const language = selectedLanguage.name;
   const [custom, setCustom] = useState(!request && !initialPackage);
   const pricing = useCurrency(apiBase, currency);
   const fmt = pricing.fmt;
@@ -245,7 +250,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
     }
   }
 
-  const unit = (o) => (o.price_lkr === 0 ? t.included : `${o.price_lkr < 0 ? "Save" : "Add"} ${fmt(Math.abs(o.price_lkr))} ${o.price_type === "per_person_night" ? t.perNight : o.price_type === "per_person" ? t.perPerson : t.flat}`);
+  const unit = (o) => (o.price_lkr === 0 ? t.included : `${o.price_lkr < 0 ? plannerText(lang, "Save") : plannerText(lang, "Add")} ${fmt(Math.abs(o.price_lkr))} ${o.price_type === "per_person_night" ? t.perNight : o.price_type === "per_person" ? t.perPerson : t.flat}`);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const over = quote && budgetLkr && quote.total_lkr > budgetLkr ? quote.total_lkr - budgetLkr : 0;
   const pkg = data?.package;
@@ -261,7 +266,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
     : [];
 
   return (
-    <div className="bp" role="dialog" aria-label={t.title}>
+    <div className="bp" role="dialog" aria-label={t.title} lang={selectedLanguage.code} dir={selectedLanguage.code === "ar" ? "rtl" : "ltr"}>
       <header className="bp-top">
         <button className="bp-back" onClick={onClose}><Icon name="arrow-back" size={20} />{p.backChat}</button>
         <div className="bp-top-title">
@@ -272,8 +277,8 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
         <button className="bp-x" onClick={onClose} aria-label={t.close}><Icon name="close" size={22} /></button>
       </header>
 
-      <nav className="builder-modes" aria-label="Builder mode"><button className={custom ? "is-active" : ""} onClick={() => setCustom(true)}>Build my own trip</button><button className={!custom ? "is-active" : ""} onClick={() => setCustom(false)}>Customize a package</button><span>Choose experiences, personalize, review</span></nav>
-      {custom ? <div className="bp-scroll"><CustomTrip initialPreparation={preparation} apiBase={apiBase} currency={currency} language={language} onBack={() => setCustom(false)} /></div> : <div className="bp-body">
+      <nav className="builder-modes" aria-label="Builder mode"><button className={custom ? "is-active" : ""} onClick={() => setCustom(true)}>{plannerText(lang, "Build my own trip")}</button><button className={!custom ? "is-active" : ""} onClick={() => setCustom(false)}>{plannerText(lang, "Customize a package")}</button><span>{plannerText(lang, "Choose experiences, personalize, review")}</span></nav>
+      {custom ? <div className="bp-scroll"><CustomTrip initialPreparation={preparation} apiBase={apiBase} currency={currency} lang={selectedLanguage.code} language={language} onBack={() => setCustom(false)} /></div> : <div className="bp-body">
       <div className="bp-scroll">
         {phase === "drafting" && (
           <div className="bp-loading" role="status">
@@ -296,7 +301,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
         {phase === "idle" && !pkgId && (
           <section className="bp-choose">
-            <CurrencyControl pricing={pricing} />
+            <CurrencyControl lang={lang} pricing={pricing} />
             <h2>{t.choose}</h2>
             {packages === null && <p className="bp-muted">{t.loading}</p>}
             <div className="bp-grid">
@@ -331,7 +336,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
             <div className="bp-layout">
               <main className="bp-main">
                 <div className="bp-map-top">
-                  <TripMap days={pkg.itinerary.map(day => ({...day, places:dayPlaces(day, pkg)}))} onFocusDay={() => {}} />
+                  <TripMap lang={lang} days={pkg.itinerary.map(day => ({...day, places:dayPlaces(day, pkg)}))} onFocusDay={() => {}} />
                 </div>
                 {ai && (
                   <div className="bp-ai">
@@ -351,7 +356,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 <section className="bp-card">
                   <h3>{p.tripDetails}</h3>
-                  <CurrencyControl pricing={pricing} />
+                  <CurrencyControl lang={lang} pricing={pricing} />
                   <div className="bp-two">
                     <div>
                       <span className="bp-label">{t.travelers}</span>
@@ -363,7 +368,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                     </div>
                     <label>
                       <span className="bp-label">{t.date} {t.dateOpt}</span>
-                      <TravelDate label="Preferred travel date" value={form.date} onChange={set("date")} />
+                      <TravelDate lang={lang} label={t.date} value={form.date} onChange={set("date")} />
                     </label>
                   </div>
                   <p className="bp-muted">{t.basis}</p>
@@ -391,7 +396,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
 
                 <section className="bp-card">
                   <h3>{p.itinerary}</h3>
-                  <details><summary>View {pkg.duration_days} days & inclusions</summary>
+                  <details><summary>{lang === "ko" ? `${pkg.duration_days}일 일정 및 포함 사항 보기` : `View ${pkg.duration_days} days & inclusions`}</summary>
                   <ol className="bp-days">
                     {view.itinerary.map((day) => (
                       <li key={day.day}>
@@ -454,7 +459,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
                   </dl>
                   {quote && (
                     <ul className="bp-lines">
-                      {quote.lines.map((l, i) => <li key={i}><span>{l.label}</span><b>{fmt(l.amount_lkr)}</b></li>)}
+                      {quote.lines.map((l, i) => <li key={i}><span>{plannerText(lang, l.label)}</span><b>{fmt(l.amount_lkr)}</b></li>)}
                     </ul>
                   )}
                   <div className="bp-total"><span>{t.total}</span><strong>{quote ? fmt(quote.total_lkr) : "—"}</strong></div>
@@ -518,15 +523,15 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
             <section className="bp-chat" aria-label={p.chatTitle}>
               <header>
                 <span className="aura-avatar" aria-hidden="true">A</span>
-                <div><strong>{p.chatTitle}</strong><small>Online</small></div>
+                <div><strong>{p.chatTitle}</strong><small>{plannerText(lang, "Online")}</small></div>
                 <button onClick={() => setChatOpen(false)} aria-label={t.close}><Icon name="close" size={18} /></button>
               </header>
-              {deletedChat && <div className="builder-undo"><button disabled={asking} onClick={() => { setChat(deletedChat); setDeletedChat(null); }}>Undo deletion</button></div>}
+              {deletedChat && <div className="builder-undo"><button disabled={asking} onClick={() => { setChat(deletedChat); setDeletedChat(null); }}>{plannerText(lang, "Undo deletion")}</button></div>}
               <div className="bp-chat-log">
                 {chat.map((m, i) => (
                   <div key={i} className={`bp-msg bp-msg-${m.role}`}>
                     <p>{m.text}</p>
-                    <ChatActions text={m.text} editable={m.role === "user"} disabled={asking} maxLength={1000}
+                    <ChatActions apiBase={apiBase} text={m.text} languageCode={selectedLanguage.code} editable={m.role === "user"} disabled={asking} maxLength={1000}
                       onEdit={text => sendAsk(text, chat.slice(0, i))}
                       onDelete={() => { setDeletedChat(chat); setChat(deleteTurn(chat, i)); setAskErr(""); }} />
                     {m.proposal && (
@@ -561,7 +566,7 @@ export default function BuilderPage({ apiBase, lang, language, initialPackage, r
         <div className="bp-modal" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
           <div className="bp-dialog">
             {modal === "details" && (
-              <form onSubmit={submit}><TripPreparation value={preparation} onChange={setPreparation} />
+              <form onSubmit={submit}><TripPreparation lang={lang} value={preparation} onChange={setPreparation} />
                 <h3>{t.yourDetails}</h3>
                 <label><span className="bp-label">{t.name}</span><input className="bp-input" required minLength={2} value={form.name} onChange={set("name")} autoComplete="name" /></label>
                 <label><span className="bp-label">{t.email}</span><input className="bp-input" required type="email" value={form.email} onChange={set("email")} autoComplete="email" /></label>

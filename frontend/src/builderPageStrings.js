@@ -57,3 +57,13 @@ export const PAGE_I18N = {
     noteDraft: "Nur ein Entwurf – es wird nichts gebucht oder abgebucht.",
   },
 };
+
+PAGE_I18N.ko = {
+ backChat:"채팅으로 돌아가기",yourPackage:"내 여행 상품",tripDetails:"여행 정보",choices:"선택 항목",itinerary:"일별 일정",highlights:"주요 볼거리",included:"포함 사항",
+ chatTitle:"Aura와 대화",chatOpen:"Aura에게 질문",chatPh:"궁금한 점이나 변경하고 싶은 내용을 알려 주세요…",chatSend:"보내기",
+ greet:why=>`대화를 바탕으로 여행 초안을 만들었습니다. ${why || ""}\n\n페이지에서 직접 수정하거나 원하는 변경 사항을 알려 주세요. 제안을 검토한 뒤 적용할 수 있습니다.`,
+ applied:"적용됨 ✓",budgetTitle:"예산",summary:"요약",perPerson:"총액 / 인원",
+ readyTitle:"여행 초안이 준비되었습니다",readyText:"말씀하신 내용을 수정 가능한 여행 상품으로 만들고 가격을 계산합니다. 아직 예약되지 않습니다.",
+ readyBtn:"초안 생성 및 여행 상품 만들기 열기",openAgain:"여행 상품 만들기 열기",
+ floor:(f,g)=>`옵션 변경 시 최저가: ${f}${g>0?` — 예산보다 ${g} 초과`:""}`,shorterTitle:"기간 단축 제안 (예상)",shorterRow:(n,price)=>`${n}일 ≈ ${price}`,fitsBudget:"예산 이내",whyPrice:"가격 구성",noteDraft:"초안입니다. 아직 예약되거나 결제되지 않았습니다."
+};

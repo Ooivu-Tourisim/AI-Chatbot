@@ -147,20 +147,105 @@
 .aura .aura-launch-dot { display:none; }
 .aura .aura-launch { border-radius:999px !important; padding:10px 16px !important; }
 
-/* Stylish chat launcher: dark pill like the reference, orange spark, soft glow. */
-.aura .aura-launch {
-  display: inline-flex; align-items: center; gap: 12px;
-  padding: 8px 18px 8px 8px !important;
-  background: linear-gradient(180deg, #2a2b2d, #1c1d1f) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 999px !important;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
-  transition: transform .2s ease, box-shadow .2s ease !important;
+/* Launcher: the Ask Aura button and the quick-ask box are one joined pill. */
+.aura:not(.aura-page) { flex-direction: column; align-items: flex-end; }
+.aura .aura-combo { display: flex; align-items: center; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--aura-line); border-radius: 999px; box-shadow: 0 8px 24px rgba(38, 33, 30, 0.14); }
+.aura .aura-combo:focus-within { border-color: var(--aura-purple); }
+.aura .aura-combo .aura-launch { box-shadow: none !important; flex: none; }
+.aura .aura-combo .aura-quick { width: 260px; border: 0; border-radius: 999px; background: transparent; }
+@media (max-width: 640px) {
+  .aura .aura-combo { flex-direction: column; border-radius: 22px; align-items: stretch; }
+  .aura .aura-combo .aura-quick { width: auto; }
 }
-.aura .aura-launch:hover { background: linear-gradient(180deg, #323336, #222325) !important; transform: translateY(-2px); box-shadow: 0 14px 34px rgba(252, 102, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important; }
-.aura .aura-launch .aura-launch-badge { width: 40px; height: 40px; display: grid; place-items: center; background: rgba(252, 102, 0, 0.14) !important; border: 1px solid rgba(252, 102, 0, 0.35); border-radius: 50%; }
-.aura .aura-launch .aura-launch-icon { color: #fc6600 !important; }
-.aura .aura-launch .aura-launch-label { color: #fff !important; font-size: 14.5px; font-weight: 700; letter-spacing: .01em; }
-.aura .aura-launch .aura-launch-hint { color: rgba(255, 255, 255, 0.55) !important; font-size: 11.5px; }
-.aura .aura-launch .aura-launch-arrow { color: #fc6600 !important; transition: transform .2s ease; }
-.aura .aura-launch:hover .aura-launch-arrow { transform: translateX(3px); }
+.aura .aura-combo .aura-launch { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 18px 0 12px !important; border-radius: 999px !important; }
+.aura .aura-combo .aura-launch .aura-launch-badge { width: 24px; height: 24px; display: grid; place-items: center; }
+.aura .aura-combo .aura-launch .aura-launch-label { color: #fff !important; font-size: 14.5px; font-weight: 700; }
+/* Circular home launcher: orange symbol above its label. */
+.aura .aura-launch { width:96px !important; height:96px !important; min-width:96px; padding:12px !important; border-radius:50% !important; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; box-sizing:border-box; }
+.aura .aura-launch .aura-launch-badge { width:30px; height:30px; display:grid; place-items:center; margin:0; background:transparent !important; border:0; }
+.aura .aura-launch .aura-launch-icon { width:29px; height:29px; color:#fc6600 !important; }
+.aura .aura-launch .aura-launch-text { display:block; text-align:center; }
+.aura .aura-launch .aura-launch-label { font-size:13px; line-height:1.25; white-space:nowrap; }
+.aura .aura-launch .aura-launch-hint,.aura .aura-launch .aura-launch-arrow,.aura .aura-launch-dot { display:none; }
+.aura .aura-launch { width:78px !important; height:78px !important; min-width:78px; padding:9px !important; gap:4px; }
+.aura .aura-launch .aura-launch-badge { width:24px; height:24px; }
+.aura .aura-launch .aura-launch-icon { width:24px; height:24px; }
+.aura .aura-launch .aura-launch-label { font-size:12px; }
+.aura .aura-launch { width:auto !important; height:48px !important; min-width:0; padding:10px 14px !important; border-radius:999px !important; flex-direction:row; gap:7px; }
+.aura .aura-launch .aura-launch-badge { width:22px; height:22px; flex:none; }
+.aura .aura-launch .aura-launch-icon { width:22px; height:22px; }
+.aura .aura-launch .aura-launch-label { font-size:12px; line-height:1; }
+.voice-conversation { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:11px; }
+.voice-conversation label { display:flex; align-items:center; gap:6px; }
+.voice-conversation select { max-width:170px; padding:7px; border:1px solid #ead8c4; border-radius:8px; background:#fffaf4; font:inherit; }
+.aura .voice-conversation button { padding:8px 11px; background:#fff0dd !important; color:#b4692d !important; border-radius:9px; font-size:11px; }
+.voice-conversation > span { flex-basis:100%; color:#a47e5b; }
+.aura .aura-compose { background:#fffdf9; border:1px solid #e6cbae; border-radius:22px; padding:16px 18px 12px; box-shadow:0 8px 28px #ab713a0c; }
+.aura .aura-compose:focus-within { border-color:#fc6600; box-shadow:0 0 0 3px #fc66000b; }
+.aura .aura-compose textarea { background:transparent; font-size:15px; line-height:1.65; padding:3px 2px 14px; }
+.aura .aura-compose-bar { flex-wrap:wrap; gap:10px; border-top:1px solid #f0e1d0; padding-top:12px; align-items:center; }
+.voice-conversation { flex:1; min-width:230px; gap:8px; }
+.aura .aura-send { margin-left:auto; width:44px; height:44px; border-radius:14px; background:#fff0dd !important; color:#fc6600 !important; }
+/* Composer: price preference sits outside the message surface. */
+.aura .aura-price-preference { display:flex; align-items:center; gap:10px; margin:0 4px 10px; color:var(--aura-muted); font-size:12px; }
+.aura .aura-price-preference .aura-currency-btn { width:auto; min-width:0; height:30px; padding:0 8px; gap:6px; border:0 !important; background:transparent !important; color:var(--aura-ink) !important; font-size:12px; }
+.aura .aura-price-preference .aura-currency-icon { width:15px; height:15px; }
+.aura .aura-price-preference .aura-currency-chevron { width:14px; height:14px; }
+.aura .aura-price-preference .aura-currency-wrap { flex:none; }
+.aura .aura-price-preference .aura-currency-dropdown { width:min(380px,calc(100vw - 40px)); }
+.aura .aura-compose { padding:16px; border:1px solid #d8d5de; border-radius:18px; background:#fff; box-shadow:0 3px 16px #35104a08; }
+.aura .aura-compose:focus-within { border-color:var(--aura-purple); box-shadow:0 0 0 3px #5f0f850b; }
+.aura .aura-compose textarea { min-height:62px; padding:0 2px 12px; line-height:1.6; }
+.aura .aura-compose-bar { flex-wrap:nowrap; gap:8px; border:0; padding-top:4px; align-items:center; }
+.aura .voice-conversation { position:relative; flex:1; min-width:0; gap:6px; align-items:center; }
+.aura .voice-conversation .voice-talk { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:36px; padding:0 12px; background:#f4eef8 !important; color:#5f0f85 !important; border:0; border-radius:9px; font-size:12px; font-weight:600; white-space:nowrap; }
+.aura .voice-conversation .voice-talk:hover { background:#eae0f2 !important; }
+.aura .voice-conversation .voice-talk.is-active { background:#5f0f85 !important; color:#fff !important; }
+.aura .voice-settings { position:relative; }
+.aura .voice-settings summary { display:grid; place-items:center; list-style:none; width:32px; height:32px; cursor:pointer; color:#74687c; border-radius:8px; }
+.aura .voice-settings summary::-webkit-details-marker { display:none; }
+.aura .voice-settings summary:hover { background:#f4eef8; }
+.aura .voice-settings-panel { position:absolute; left:0; bottom:calc(100% + 12px); width:260px; max-width:calc(100vw - 48px); padding:14px; background:#fff; border:1px solid #d8d5de; border-radius:12px; box-shadow:0 8px 28px #35104a18; z-index:20; }
+.aura .voice-settings-panel label { display:grid; gap:9px; font-size:12px; color:#53445e; }
+.aura .voice-settings-panel select { width:100%; max-width:none; padding:9px; border:1px solid #d8d5de; border-radius:7px; background:#fff; color:#53445e; }
+.aura .voice-conversation .voice-finish { background:transparent !important; color:#5f0f85 !important; padding:6px; }
+.aura .voice-conversation-status { width:100%; font-size:11px; color:#74687c; line-height:1.4; }
+.aura .voice-input { margin:0; flex:none; }
+.aura .aura-mic { display:grid; place-items:center; width:38px; height:38px; padding:0; color:#74687c; }
+.aura .aura-send { flex:none; margin-left:0; width:40px; height:40px; border-radius:12px; background:#5f0f85 !important; color:#fff !important; }
+.aura .aura-send:disabled { background:#f1eef4 !important; color:#b5aabb !important; }
+.aura .voice-settings summary:focus-visible { outline:2px solid #5f0f85; outline-offset:2px; }
+@media(max-width:480px) {
+ .aura .aura-dock { padding:8px 12px 12px; }
+ .aura .aura-compose { padding:12px; }
+ .aura .voice-settings-panel { left:-120px; }
+ .aura .voice-conversation .voice-talk { padding:0 9px; font-size:11px; }
+}
+.aura .aura-price-preference { box-sizing:border-box; width:100%; max-width:800px; margin:0 auto 10px; padding:0 2px; }
+.aura .aura-compose { box-sizing:border-box; }
+/* Header preferences sit together; the composer contains conversation actions only. */
+.aura .aura-top-links .aura-price-preference { width:auto; max-width:none; flex:none; margin:0; padding:0 0 0 10px; height:36px; gap:2px; border:1px solid var(--aura-line); border-radius:6px; background:#fff; color:var(--aura-muted); }
+.aura .aura-top-links .aura-price-preference > span { font-size:11px; }
+.aura .aura-top-links .aura-price-preference .aura-currency-btn { display:inline-flex !important; height:34px; padding:0 8px; }
+.aura .aura-top-links .aura-currency-dropdown { top:calc(100% + 10px); bottom:auto; left:auto; right:0; }
+.aura .aura-mic { color:#55535a; }
+.aura .aura-mic .aura-eva { stroke-width:1.9; }
+@media(max-width:720px) {
+ .aura .aura-top { flex-wrap:wrap; gap:8px; }
+ .aura .aura-top-links { flex-wrap:wrap; justify-content:flex-end; }
+ .aura .aura-top-links .aura-price-preference > span { display:none; }
+ .aura .aura-top-links .aura-price-preference { padding-left:2px; }
+ .aura .aura-top-links .aura-currency-dropdown { right:-40px; width:min(340px,calc(100vw - 32px)); }
+}
+/* Currency picker: one readable currency name and a quiet dropdown chevron. */
+.aura .aura-top-links .aura-price-preference { padding:0; border:0; background:transparent; }
+.aura .aura-top-links .aura-price-preference .aura-currency-btn { height:36px; max-width:240px; gap:10px; padding:0 12px; background:#fff !important; border:1px solid var(--aura-line) !important; border-radius:6px; font-size:13px; font-weight:400; }
+.aura .aura-top-links .aura-currency-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.aura .aura-top-links .aura-currency-chevron { flex:none; width:12px; height:12px; color:#87858c; }
+@media(max-width:720px) { .aura .aura-top-links .aura-price-preference .aura-currency-btn { max-width:180px; font-size:12px; } }
+/* Language and currency share the same quiet name-and-chevron control. */
+.aura .aura-top-links .aura-lang { height:36px; padding:0; gap:0; position:relative; background:#fff !important; border:1px solid var(--aura-line) !important; border-radius:6px; }
+.aura .aura-top-links .aura-lang select { appearance:none; -webkit-appearance:none; height:34px; min-width:100px; margin:0; padding:0 32px 0 12px; border:0; background:transparent; color:var(--aura-ink); font-size:13px; font-weight:400; cursor:pointer; }
+.aura .aura-language-chevron { position:absolute; right:12px; pointer-events:none; color:#87858c; }
+.aura .aura-lang:focus-within { outline:2px solid var(--aura-purple); outline-offset:2px; }
+@media(max-width:720px) { .aura .aura-top-links .aura-lang select { font-size:12px; min-width:90px; } }

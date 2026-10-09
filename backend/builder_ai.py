@@ -17,7 +17,7 @@ import builder
 import currency
 import database
 
-FALLBACK_MODEL = "gemini-flash-lite-latest"
+FALLBACK_MODEL = "gemini-3-flash-preview"
 HEDGE_AFTER = 4.0  # seconds before racing a second model
 
 OPTION_RULES = """- Use ONLY the package ids and option ids listed in the catalogue. Never invent hotels, meals, prices, availability, travel times or services.
@@ -31,7 +31,7 @@ DRAFT_PROMPT = """You turn a traveler's request into a DRAFT inside our Package 
 {rules}
 - Choose exactly one package that fits best. Pick travelers (default 2 if unclear) and one option per required group; "extras" is a list (may be empty).
 - If a budget is stated, return it as {{"amount": number, "currency": "ISO code"}} exactly as the traveler wrote it; otherwise null.
-- Write "why_it_fits", "assumptions" and "unmet" in {language}.
+- Write "why_it_fits", "assumptions" and "unmet" in {language}, the user's selected interface language. This selection takes precedence over the language of their written request, spoken input, or previous chat. Never auto-detect the response language inside the Package Builder.
 
 JSON shape:
 {{"package_id": str, "travelers": int, "travel_month": str, "budget": {{"amount": number, "currency": str}} | null,
@@ -44,6 +44,7 @@ JSON shape:
 """
 
 ASSIST_PROMPT = """You are Aura, helping a traveler edit their draft in the Package Builder. Reply in {language}. Output JSON only.
+The user explicitly selected {language} for the builder. Keep replies in that language even when their message or previous conversation uses another language.
 
 {rules}
 - You may suggest changes only by returning "changes": travelers and/or selections (same ids as the catalogue). Leave "changes" null if the traveler only asks a question.
@@ -127,6 +128,7 @@ def _json(client, model: str, system: str, user: str, timeout_ms: int, schema) -
                 system_instruction=system,
                 response_mime_type="application/json",
                 response_schema=schema,
+                thinking_config=types.ThinkingConfig(thinking_level="minimal"),
                 max_output_tokens=2500,
                 http_options=types.HttpOptions(timeout=max(timeout_ms, 10000)),
             ),

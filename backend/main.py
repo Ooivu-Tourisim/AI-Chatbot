@@ -5,15 +5,20 @@ server prepends the system prompt grounded in the verified package database.
 """
 
 import json
+import base64
+import binascii
+import logging
 import os
+import io
 import threading
+import wave
 import time
 from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel, Field
@@ -26,6 +31,8 @@ import draft
 import rag
 import translate
 from prompt import build_greeting, build_system_prompt
+from language_policy import REPLY_LANGUAGE_POLICY, TRANSCRIPTION_INSTRUCTIONS
+from chat_stream import response_events
 
 load_dotenv()
 
@@ -39,6 +46,8 @@ threading.Thread(target=currency.get_rates, daemon=True).start()
 PLATFORM_NAME = os.getenv("PLATFORM_NAME", "North of Ceylon")
 RAW_MODEL = os.getenv("GEMINI_MODEL") or os.getenv("ANTHROPIC_MODEL", "gemini-3.5-flash-lite")
 MODEL = "gemini-3.5-flash-lite" if RAW_MODEL in ("gemini", "default", "", None) else RAW_MODEL
+BUILDER_MODEL = os.getenv("GEMINI_BUILDER_MODEL") or "gemini-3.5-flash"
+LANGUAGE_MODEL = os.getenv("GEMINI_LANGUAGE_MODEL") or "gemini-3.5-flash-lite"
 
 MAX_TOKENS = int(os.getenv("AURA_MAX_TOKENS", "2000"))
 ALLOWED_ORIGINS = [
@@ -59,10 +68,11 @@ app.add_middleware(
 )
 
 
-def get_current_system_prompt(query: str = "", history: list[str] | None = None) -> str:
+def get_current_system_prompt(query: str = "", history: list[str] | None = None, currency_code: str = "USD") -> str:
     """Fetch the latest packages from the database and generate the grounded prompt."""
     catalog = rag.build_context(query, history)
-    rates = currency.build_currency_section(database.get_all_packages())
+    requested = [currency_code] + [code for code in currency.MAJOR_CURRENCIES if code in query.upper().split()]
+    rates = currency.build_currency_section(database.get_all_packages(), requested)
     return build_system_prompt(PLATFORM_NAME, catalog + "\n\n" + rates)
 
 
@@ -72,7 +82,10 @@ class Message(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
+    currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
     messages: list[Message] = Field(min_length=1, max_length=40)
+    language_code: str | None = Field(default=None, pattern=r"^[a-z]{2,3}$")
 
 
 class DayRef(BaseModel):
@@ -165,7 +178,7 @@ def ai_call(fn, *args):
     if not client:
         raise HTTPException(status_code=503, detail=AI_DOWN)
     try:
-        return fn(client, MODEL, *args)
+        return fn(client, BUILDER_MODEL, *args)
     except json.JSONDecodeError:
         raise HTTPException(status_code=503, detail=AI_DOWN)  # malformed model output counts as AI failure
     except (LookupError, ValueError):
@@ -176,6 +189,112 @@ def ai_call(fn, *args):
 
 def sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
+
+
+class AudioRequest(BaseModel):
+    audio: str = Field(min_length=1, max_length=8_000_000)
+    mime_type: Literal["audio/webm", "audio/mp4", "audio/ogg", "audio/wav"]
+
+
+class SpeechSegment(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+    language_code: str = Field(pattern=r"^[a-z]{2,3}$")
+
+
+class Transcript(BaseModel):
+    text: str = Field(max_length=6000)
+    language: str = Field(max_length=40)
+    locale: str = Field(max_length=30)
+    language_code: str = Field(pattern=r"^([a-z]{2,3})?$")
+    language_codes: list[str] = Field(default_factory=list, max_length=20)
+    segments: list[SpeechSegment] = Field(default_factory=list, max_length=100)
+
+
+class SpeechOutputSegment(BaseModel):
+    text: str
+    language_code: str
+
+
+class SpeechOutput(BaseModel):
+    """Simple Gemini output schema; validate limits separately with Transcript."""
+    text: str
+    language: str
+    locale: str
+    language_code: str
+
+
+@app.post("/api/transcribe")
+def transcribe(req: AudioRequest):
+    if not client:
+        raise HTTPException(status_code=503, detail=AI_DOWN)
+    try:
+        audio = base64.b64decode(req.audio, validate=True)
+    except (ValueError, binascii.Error):
+        raise HTTPException(status_code=422, detail="Invalid audio recording.")
+    try:
+        result = client.models.generate_content(
+            model=LANGUAGE_MODEL,
+            contents=[types.Part.from_bytes(data=audio, mime_type=req.mime_type),
+                      TRANSCRIPTION_INSTRUCTIONS],
+            config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=SpeechOutput,
+                                               thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                                               automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                                               http_options=types.HttpOptions(timeout=30000)),
+        )
+        return Transcript.model_validate_json(result.text)
+    except errors.APIError as exc:
+        # Log a code, never raw provider messages that may contain request details.
+        logging.getLogger(__name__).error("Transcription provider failed: model=%s code=%s", LANGUAGE_MODEL, exc.code)
+        if exc.code == 429:
+            detail = "Voice transcription is temporarily rate-limited. Please try again shortly."
+        elif exc.code in (401, 403):
+            detail = "Voice transcription is unavailable: check the Gemini API key and model access."
+        elif exc.code == 404:
+            detail = "The configured speech model is unavailable. Check GEMINI_LANGUAGE_MODEL."
+        else:
+            detail = "Could not transcribe the recording. Please try again."
+        raise HTTPException(status_code=503, detail=detail) from exc
+    except Exception as exc:
+        logging.getLogger(__name__).error("Transcription failed: model=%s error_type=%s", LANGUAGE_MODEL, type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Could not transcribe the recording. Please try again.")
+
+
+TTS_MODELS = [m for m in (os.getenv("GEMINI_TTS_MODEL"), "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview") if m]
+TTS_VOICE = os.getenv("GEMINI_TTS_VOICE") or "Kore"
+
+
+class SpeakRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1500)
+
+
+@app.post("/api/speak")
+def speak(req: SpeakRequest):
+    """Spoken audio (WAV) for any language, used when the browser has no voice for it."""
+    if not client:
+        raise HTTPException(status_code=503, detail=AI_DOWN)
+    pcm = None
+    for model in TTS_MODELS:  # next model if one is rate-limited or unavailable
+        try:
+            result = client.models.generate_content(
+                model=model,
+                contents=req.text,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=TTS_VOICE))),
+                    http_options=types.HttpOptions(timeout=30000),
+                ),
+            )
+            pcm = result.candidates[0].content.parts[0].inline_data.data
+            break
+        except Exception as exc:
+            logging.getLogger(__name__).error("Speech synthesis failed: model=%s error_type=%s code=%s", model, type(exc).__name__, getattr(exc, "code", None))
+    if not pcm:
+        raise HTTPException(status_code=503, detail="Voice output is unavailable right now.")
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:  # Gemini TTS returns raw 24 kHz, 16-bit mono PCM
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(pcm)
+    return Response(content=buf.getvalue(), media_type="audio/wav")
 
 
 @app.get("/api/greeting")
@@ -349,7 +468,9 @@ def chat(req: ChatRequest):
 
     # Dynamic grounded system prompt with verified database packages
     system_instruction = get_current_system_prompt(
-        req.messages[-1].content, [m.content for m in req.messages[:-1]][-4:]
+        query=req.messages[-1].content,
+        history=[m.content for m in req.messages[:-1]][-4:],
+        currency_code=req.currency,
     )
 
     # Map previous turns into Gemini Content objects
@@ -363,29 +484,52 @@ def chat(req: ChatRequest):
     latest_user_message = req.messages[-1].content
 
     def stream():
+        language_code = req.language_code
+        delivered = False
+        language_instruction = (
+            f"Respond in the language with ISO 639 code {language_code}. This resolved reply language takes precedence over interface notes."
+            if language_code else REPLY_LANGUAGE_POLICY +
+            "\nIgnore bracketed interface preferences for clear input. Start your output with exactly "
+            "[[language:xx]] on its own line, replacing xx with the chosen ISO 639 code. "
+            "Then immediately write the answer in that language. This first line is transport metadata."
+        )
+
         def stream_with_model(target_model: str):
+            nonlocal delivered
             chat_session = client.chats.create(
                 model=target_model,
                 history=history,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
+                    system_instruction=system_instruction + "\n" + language_instruction + (
+                        " Respond fluently and naturally, using its original script. "
+                        "Understand every part of code-switched input without dropping details. Preserve foreign names "
+                        "and quoted terms where appropriate; do not explain language detection unless asked."
+                    ),
                     max_output_tokens=MAX_TOKENS,
+                    thinking_config=types.ThinkingConfig(thinking_level="minimal"),
                     tools=[builder_ai.budget_check_tool],
                 ),
             )
-            for chunk in chat_session.send_message_stream(latest_user_message):
-                if chunk.text:
-                    yield sse({"type": "delta", "text": chunk.text})
-            yield sse({"type": "done"})
+            for event in response_events(chat_session.send_message_stream(latest_user_message), language_code):
+                if event["type"] == "delta":
+                    delivered = True
+                yield sse(event)
 
         try:
             try:
                 yield from stream_with_model(MODEL)
-            except Exception:
+            except Exception as exc:
+                if isinstance(exc, errors.APIError) and exc.code == 429:
+                    raise  # Another model call cannot resolve project quota exhaustion.
+                if delivered:
+                    raise  # A partial answer must not be duplicated by a retry.
                 fallback = "gemini-flash-lite-latest" if MODEL != "gemini-flash-lite-latest" else "gemini-3.5-flash-lite"
                 yield from stream_with_model(fallback)
         except errors.APIError as e:
-            yield sse({"type": "error", "message": f"Assistant unavailable ({e.code}): {e.message}"})
+            if e.code == 429:
+                yield sse({"type": "error", "code": "rate_limited", "message": "The AI request limit has been reached. Please wait and try again. If it persists, check your Gemini quota in AI Studio."})
+            else:
+                yield sse({"type": "error", "message": "The assistant is temporarily unavailable. Please try again."})
         except Exception as e:
             yield sse({"type": "error", "message": f"Could not reach the assistant. {str(e)}"})
 

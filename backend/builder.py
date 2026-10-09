@@ -23,7 +23,24 @@ import database
 # per_person* options scale with travelers. Use "per_person" if prices are per traveler.
 BASE_PRICE_BASIS = "flat"
 
-LANGS = ("en", "zh", "es", "fr", "de")
+LANGS = ("en", "zh", "es", "fr", "de", "ko")
+
+KOREAN_LABELS = {
+    "Hotel tier": "숙박 등급", "Standard (included)": "스탠다드 (포함)",
+    "Comfort room (lower cost)": "컴포트 객실 (저렴한 옵션)", "Superior": "슈페리어", "Luxury": "럭셔리",
+    "Meal plan": "식사 옵션", "Breakfast only (included)": "조식만 (포함)",
+    "Half board": "조식 및 석식", "Full board": "모든 식사",
+    "Transport": "교통", "Shared transfers (included)": "공용 이동 서비스 (포함)",
+    "Private air-conditioned vehicle": "에어컨이 있는 전용 차량", "Extras": "추가 옵션",
+    "Private local guide": "전용 현지 가이드", "Photography session": "사진 촬영",
+}
+
+
+def option_label(raw: str, lang: str) -> str:
+    labels = json.loads(raw)
+    if lang == "ko":
+        return labels.get("ko") or KOREAN_LABELS.get(labels["en"], labels["en"])
+    return labels.get(lang) or labels["en"]
 
 
 def _l(en, zh, es, fr, de):
@@ -153,10 +170,10 @@ def get_builder(package_id: str, lang: str = "en") -> dict[str, Any] | None:
     for r in _load(package_id):
         g = groups.setdefault(r["group_id"], {
             "id": r["group_id"], "multi": bool(r["is_multi"]), "required": bool(r["is_required"]),
-            "label": json.loads(r["group_label"]).get(lang), "options": [],
+            "label": option_label(r["group_label"], lang), "options": [],
         })
         g["options"].append({
-            "id": r["option_id"], "icon_name": r["icon_name"], "label": json.loads(r["label"]).get(lang),
+            "id": r["option_id"], "icon_name": r["icon_name"], "label": option_label(r["label"], lang),
             "price_lkr": r["price_lkr"], "price_type": r["price_type"], "default": bool(r["is_default"]),
         })
     return {

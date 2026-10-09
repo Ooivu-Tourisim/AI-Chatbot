@@ -1,4 +1,7 @@
+import { plannerText } from "./plannerI18n.js";
+import VoiceConversation from "./VoiceConversation.jsx";
 import VoiceInput from "./VoiceInput.jsx";
+import { createReplySpeaker } from "./replySpeaker.js";
 import { CURRENCY_DATA } from "./currencyData.js";
 import { useEffect, useRef, useState, useMemo, lazy, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
@@ -20,7 +23,7 @@ const BuilderPage = lazy(() => import("./BuilderPage.jsx"));
 
 
 /* ─── Searchable & Typeable Currency Combobox ─── */
-function CurrencyPicker({ value, onChange }) {
+function CurrencyPicker({ value, onChange, compact = false, lang = "en" }) {
   const [dropOpen, setDropOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(0);
@@ -94,11 +97,16 @@ function CurrencyPicker({ value, onChange }) {
         pickCustom(search);
       }
     } else if (e.key === "Escape") {
+      e.stopPropagation();
       setDropOpen(false);
     }
   }
 
   const selected = CURRENCY_DATA.find((c) => c.code === value);
+  const displayCurrency = value || "LKR";
+  const currencyName = /^[A-Z]{3}$/.test(displayCurrency)
+    ? (lang === "en" && displayCurrency === "USD" ? "United States Dollar" : new Intl.DisplayNames([lang], { type: "currency" }).of(displayCurrency))
+    : displayCurrency;
 
   return (
     <div className="aura-currency-wrap" ref={wrapRef}>
@@ -108,10 +116,11 @@ function CurrencyPicker({ value, onChange }) {
         onClick={() => setDropOpen(!dropOpen)}
         aria-haspopup="listbox"
         aria-expanded={dropOpen}
-        title="Choose or type your country / currency"
+        aria-label={lang === "ko" ? "통화/국가" : "Currency/country"}
+        title={lang === "ko" ? "국가 또는 통화 선택" : "Choose or type your country / currency"}
       >
-        <Icon name="swap" size={18} className="aura-currency-icon" />
-        {selected ? (
+        {!compact && <Icon name="swap" size={18} className="aura-currency-icon" />}
+        {compact ? <span className="aura-currency-label">{currencyName}</span> : selected ? (
           <span className="aura-currency-label">
             <span className="aura-currency-flag">{selected.flag}</span>
             <span className="aura-currency-code">{selected.code}</span>
@@ -124,7 +133,7 @@ function CurrencyPicker({ value, onChange }) {
         ) : (
           <span className="aura-currency-placeholder">Choose or type currency / country…</span>
         )}
-        {value && (
+        {value && !compact && (
           <span
             className="aura-currency-clear"
             role="button"
@@ -219,6 +228,8 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const draftLanguage = useRef(null);
+  const voiceTurn = useRef(false), speakerRef = useRef(null);
   const [quick, setQuick] = useState("");
   const [currency, setCurrency] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -251,9 +262,10 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, streaming]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => () => { abortRef.current?.abort(); speakerRef.current?.stop(); }, []);
 
   function newChat() {
+    speakerRef.current?.stop();
     abortRef.current?.abort();
     abortRef.current = null;
     setStreaming(false);
@@ -265,10 +277,16 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
     inputRef.current?.focus();
   }
 
-  async function send(text, previous = messages) {
+  async function send(text, previous = messages, detectedLanguageCode) {
     const trimmed = text.trim();
+    const languageCode = detectedLanguageCode || (draftLanguage.current?.text === trimmed ? draftLanguage.current.language_code : undefined);
     if (!trimmed || streaming) return;
 
+    // A message spoken into the mic is answered out loud as well as in text.
+    speakerRef.current?.stop();
+    const speaker = voiceTurn.current ? createReplySpeaker(apiBase, languageCode) : null;
+    speakerRef.current = speaker;
+    voiceTurn.current = false;
     const history = [...previous, { role: "user", content: trimmed, time: Date.now() }];
     setDeletedChat(null);
     setMessages([...history, { role: "assistant", content: "", time: Date.now() }]);
@@ -277,7 +295,8 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
     setStreaming(true);
 
     // Tell Aura the chosen currency on the latest turn without showing it in the chat.
-    const notes = [currency && `My currency: ${currency}`, `Reply language: ${langInfo.name}`]
+    const scriptLanguage = /[\u0B80-\u0BFF]/.test(trimmed) ? "Tamil" : /[\u0D80-\u0DFF]/.test(trimmed) ? "Sinhala" : /[\uAC00-\uD7AF]/.test(trimmed) ? "Korean" : /[\u0900-\u097F]/.test(trimmed) ? "Hindi" : /[\u0600-\u06FF]/.test(trimmed) ? "Arabic" : langInfo.name;
+    const notes = [currency && `My currency: ${currency}`, `Reply language: ${"Auto-detect from the latest message; use " + scriptLanguage + " only if ambiguous"}`]
       .filter(Boolean)
       .join("; ");
     const payload = history.map((m, i) => ({
@@ -294,7 +313,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: payload }),
+        body: JSON.stringify({ messages: payload, language_code: languageCode, currency: currency || "USD" }),
         signal: controller.signal,
       });
       if (!res.ok) throw new Error(String(res.status));
@@ -316,8 +335,13 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
           if (!line) continue;
           const event = JSON.parse(line.slice(6));
 
-          if (event.type === "delta") {
+          if (event.type === "language") {
             if (abortRef.current !== controller) continue;
+            setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, language_code: event.language_code } : m));
+            speaker?.setLanguage(event.language_code);
+          } else if (event.type === "delta") {
+            if (abortRef.current !== controller) continue;
+            speaker?.feed(event.text);
             setMessages((prev) => {
               const next = [...prev];
               next[next.length - 1] = {
@@ -327,7 +351,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
               return next;
             });
           } else if (event.type === "error") {
-            setError(AI_DOWN);
+            setError(event.code === "rate_limited" ? event.message : AI_DOWN);
           }
         }
       }
@@ -335,6 +359,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
       if (abortRef.current === controller && err.name !== "AbortError") setError(AI_DOWN);
     } finally {
       if (abortRef.current === controller) {
+        speaker?.end();
         setStreaming(false);
         abortRef.current = null;
         inputRef.current?.focus();
@@ -349,14 +374,15 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
     }
   }
 
-  const t = I18N[lang];
-  const langInfo = LANGS.find((l) => l.code === lang);
+  const t = I18N[lang] || I18N.en;
+  const langInfo = LANGS.find((l) => l.code === lang) || LANGS.find(l => l.code === "en");
   const empty = messages.length === 0;
   const lastIdx = messages.length - 1;
 
   if (!open) {
     return (
       <div className="aura">
+        <div className="aura-combo">
         <button
           className="aura-launch"
           onClick={() => setOpen(true)}
@@ -366,11 +392,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
             <Icon name="sparkles" size={22} className="aura-launch-icon" />
             <span className="aura-launch-dot" />
           </span>
-          <span className="aura-launch-text">
-            <span className="aura-launch-label">Ask Aura</span>
-            <span className="aura-launch-hint">AI travel assistant</span>
-          </span>
-          <Icon name="arrow-forward" size={20} className="aura-launch-arrow" />
+          <span className="aura-launch-label">{plannerText(lang, "Ask Aura")}</span>
         </button>
         <form
           className="aura-quick"
@@ -387,13 +409,14 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
             className="aura-quick-input"
             value={quick}
             onChange={(e) => setQuick(e.target.value)}
-            placeholder="Or ask Aura a question…"
+            placeholder="Type here"
             aria-label="Ask Aura a question"
           />
-          <button className="aura-quick-send" type="submit" disabled={!quick.trim()} aria-label="Ask Aura">
+          <button className="aura-quick-send" type="submit" disabled={!quick.trim()} aria-label={plannerText(lang, "Ask Aura")}>
             <Icon name="arrow-upward" size={18} />
           </button>
         </form>
+        </div>
       </div>
     );
   }
@@ -409,7 +432,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
         </button>
         <button className="aura-rail-item" onClick={() => setBuilder({ request: null, key: Date.now() })}>
           <span className="aura-rail-icon"><Icon name="map" /></span>
-          {BUILDER_I18N[lang].title}
+          {(BUILDER_I18N[lang] || BUILDER_I18N.en).title}
         </button>
         <button className="aura-rail-item" onClick={() => send(t.pPackages)} disabled={streaming}>
           <span className="aura-rail-icon"><Icon name="compass" /></span>
@@ -436,9 +459,10 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
             <button className="aura-tab-add" onClick={newChat} aria-label="Start a new chat"><Icon name="plus" size={20} /></button>
           </div>
           <div className="aura-top-links">
-
+            <div className="aura-price-preference">
+              <CurrencyPicker compact lang={lang} value={currency} onChange={setCurrency} />
+            </div>
             <label className="aura-lang">
-              <Icon name="globe" size={18} />
               <select
                 value={lang}
                 aria-label="Language"
@@ -449,26 +473,27 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
               >
                 {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
+              <Icon name="chevron-down" size={12} className="aura-language-chevron" />
             </label>
             <button
               className="aura-draft-open"
               disabled={streaming}
               onClick={() => setBuilder({ request: messages.filter((m) => m.role === "user").map((m) => m.content).join("\n") + (currency ? `\n(Currency: ${currency})` : ""), key: Date.now() })}
               title="Plan and personalize your trip"
-            ><Icon name="paper-plane" size={18} />Plan my trip</button>
+            ><Icon name="paper-plane" size={18} />{plannerText(lang, "Plan my trip")}</button>
             <button onClick={() => send(t.pPackages)} disabled={streaming}><Icon name="compass" size={18} />{t.packages}</button>
             <button onClick={() => send(t.pItinerary)} disabled={streaming}><Icon name="map" size={18} />{t.itinerary}</button>
             <button className="aura-close" onClick={() => setOpen(false)} aria-label="Close assistant"><Icon name="close" size={22} /></button>
           </div>
         </header>
-        {deletedChat && <div className="chat-undo"><button onClick={() => { setMessages(deletedChat); setDeletedChat(null); }}>Undo deletion</button></div>}
+        {deletedChat && <div className="chat-undo"><button onClick={() => { setMessages(deletedChat); setDeletedChat(null); }}>{plannerText(lang, "Undo deletion")}</button></div>}
 
         <div className={`aura-scroll ${empty ? "is-empty" : "is-chat"}`} ref={scrollRef}>
           {empty ? (
             <section className="aura-hero">
               <h1 className="aura-headline">{lang === "en" ? "Your trip. Made for you." : t.headline}</h1>
               <p className="aura-sub">{lang === "en" ? "Tell Aura your idea, or pick places on the map." : t.sub(currency)}</p>
-              <div className="aura-trip-banner"><div><span>Trip planner</span><strong>Build your route on the map</strong></div><button onClick={() => setBuilder({ request: null, key: Date.now() })}>Open trip planner</button></div>
+              <div className="aura-trip-banner"><div><span>{plannerText(lang, "Trip planner")}</span><strong>{plannerText(lang, "Build your route on the map")}</strong></div><button onClick={() => setBuilder({ request: null, key: Date.now() })}>{plannerText(lang, "Open trip planner")}</button></div>
 
               <div className="aura-cards">
                 {CARD_IMAGES.map((image, ci) => {
@@ -481,7 +506,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
                       <span className="aura-card-title"><Icon name={["heritage", "romance", "island", "food", "wildlife", "credit-card"][ci]} size={18} /> {title}</span>
                       <div className="aura-card-reveal" id={`aura-card-details-${ci}`}>
                         <p className="aura-card-hint">{hint}</p>
-                        <button className="aura-card-explore" onClick={() => send(prompt)}>Explore trip <Icon name="arrow-forward" size={16} /></button>
+                        <button className="aura-card-explore" onClick={() => send(prompt)}>{plannerText(lang, "Explore trip")} <Icon name="arrow-forward" size={16} /></button>
                       </div>
                     </div>
                   </article>
@@ -508,7 +533,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
                             <i /><i /><i />
                           </span>
                         )}
-                        {m.content && !(streaming && i === lastIdx) && <ChatActions text={m.content} disabled={streaming} onRetry={() => { const previous = messages.slice(0, i); const question = previous.findLastIndex(m => m.role === "user"); if (question >= 0) send(previous[question].content, previous.slice(0, question)); }} onDelete={() => { setDeletedChat(messages); setMessages(deleteTurn(messages, i)); setError(null); }} />}
+                        {m.content && !(streaming && i === lastIdx) && <ChatActions apiBase={apiBase} text={m.content} languageCode={m.language_code} disabled={streaming} onRetry={() => { const previous = messages.slice(0, i); const question = previous.findLastIndex(m => m.role === "user"); if (question >= 0) send(previous[question].content, previous.slice(0, question)); }} onDelete={() => { setDeletedChat(messages); setMessages(deleteTurn(messages, i)); setError(null); }} />}
                         {m.content && !(streaming && i === lastIdx) && (
                           <time className="aura-time" dateTime={new Date(m.time).toISOString()}>{formatTime(m.time, langInfo.locale)}</time>
                         )}
@@ -517,7 +542,7 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
                   ) : (
                     <>
                       <span className="aura-user-text">{m.content}</span>
-                      <ChatActions text={m.content} editable disabled={streaming}
+                      <ChatActions apiBase={apiBase} text={m.content} editable disabled={streaming}
                         onEdit={text => send(text, messages.slice(0, i))}
                         onDelete={() => { setDeletedChat(messages); setMessages(deleteTurn(messages, i)); setError(null); }} />
                       <time className="aura-time" dateTime={new Date(m.time).toISOString()}>{formatTime(m.time, langInfo.locale)}</time>
@@ -529,11 +554,11 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
               {!streaming && !error && messages[lastIdx]?.role === "assistant" && messages[lastIdx].content && messages.filter((m) => m.role === "user").length >= 2 && (
                 <div className="aura-ready">
                   <div>
-                    <strong>{PAGE_I18N[lang].readyTitle}</strong>
-                    <p>{PAGE_I18N[lang].readyText}</p>
+                    <strong>{(PAGE_I18N[lang] || PAGE_I18N.en).readyTitle}</strong>
+                    <p>{(PAGE_I18N[lang] || PAGE_I18N.en).readyText}</p>
                   </div>
                   <button onClick={() => setBuilder({ request: messages.filter((m) => m.role === "user").map((m) => m.content).join("\n") + (currency ? `\n(Currency: ${currency})` : ""), key: Date.now() })}>
-                    {PAGE_I18N[lang].readyBtn}
+                    {(PAGE_I18N[lang] || PAGE_I18N.en).readyBtn}
                   </button>
                 </div>
               )}
@@ -560,8 +585,8 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
               onKeyDown={onKeyDown}
             />
             <div className="aura-compose-bar">
-              {empty && <CurrencyPicker value={currency} onChange={setCurrency} />}
-              <VoiceInput key={messages.length} value={draft} onChange={setDraft} language={langInfo.locale} disabled={streaming} />
+              <VoiceConversation apiBase={apiBase} lang={lang} language={langInfo.locale} reply={messages.findLast(m => m.role === "assistant")} busy={streaming} onSend={send} />
+              <VoiceInput apiBase={apiBase} key={messages.length} value={draft} onChange={setDraft} onDetected={result => { draftLanguage.current = result; voiceTurn.current = true; send(result.text, undefined, result.language_code); }} language={langInfo.locale} disabled={streaming} />
               <button className="aura-send" onClick={() => send(draft)} disabled={streaming || !draft.trim()} aria-label="Send">
                 <Icon name="paper-plane" size={22} />
               </button>
@@ -576,7 +601,6 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
           key={builder.key}
           apiBase={apiBase}
           lang={lang}
-          language={langInfo.name}
           request={builder.request}
           currency={currency || "LKR"}
           onClose={() => setBuilder(null)}
@@ -586,4 +610,5 @@ export default function AuraChat({ apiBase = "", planRequest = 0 }) {
     </div>
   );
 }
+
 

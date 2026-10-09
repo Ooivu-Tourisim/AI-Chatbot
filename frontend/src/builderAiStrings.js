@@ -52,3 +52,11 @@ export const AI_I18N = {
     packTitle: "Packliste", packTab: "Packen", optionsTab: "Optionen",
   },
 };
+
+AI_I18N.ko = {
+ drafting:"Aura가 여행 상품을 준비하고 있습니다…",manual:"여행 상품 직접 선택",draftNote:"Aura의 초안입니다. 모든 내용을 검토하고 원하는 대로 수정하세요.",
+ askTitle:"Aura에게 질문",askPh:"예: 비용 줄이기, 가이드 추가, 인원 4명으로 변경…",ask:"보내기",thinking:"Aura가 생각하고 있습니다…",
+ chips:["비용을 줄여 주세요","더 편안하게 해 주세요","가격을 설명해 주세요"],proposal:(total,delta)=>`변경 제안 총액: ${total} (${delta})`,applyChange:"변경 적용",dismiss:"닫기",
+ noSavings:"이 상품의 가장 저렴한 조합입니다. 더 저렴하게 바꿀 수 있는 옵션이 없습니다.",swap:(a,b)=>`${a} → ${b}`,drop:a=>`제외: ${a}`,
+ packTitle:"여행 준비물 목록",packTab:"준비물",optionsTab:"옵션"
+};

@@ -22,7 +22,7 @@ Rules:
 - Rank by how well days fit the traveler's stated interests, group, pace and duration. Price may matter only through the traveler's own budget. Never favour anything for commission or sponsorship (there is no such data).
 - Pick a coherent, geographically sensible sequence of days (one entry per trip day).
 - If a requirement cannot be met from the catalogue (dates/availability cannot be verified, hotel tier, a destination or activity that is not listed, live weather), list it in "unmet" with a short honest reason. Do not pretend to satisfy it.
-- Write "title", "why_it_fits", "assumptions" and "unmet" in {language}.
+- Write "title", "why_it_fits", "assumptions" and "unmet" in {language}, the user's selected interface language, regardless of the language used in their request or speech.
 
 JSON shape:
 {{"title": str, "why_it_fits": str, "days": [{{"package_id": str, "day": int}}], "assumptions": [str], "unmet": [str]}}
@@ -31,6 +31,7 @@ JSON shape:
 """
 
 CHECKLIST_INSTRUCTIONS = """Create a personalised packing checklist for this trip in {language}. Output JSON only.
+Use the user's selected language {language} for all category names, items and notes, regardless of the source itinerary's language.
 
 Trip days:
 {days}
@@ -104,6 +105,7 @@ def build_draft(client, model: str, request: str, language: str, timeout_ms: int
         contents=request,
         config=types.GenerateContentConfig(
             system_instruction=prompt,
+            thinking_config=types.ThinkingConfig(thinking_level="minimal"),
             response_mime_type="application/json",
             max_output_tokens=2000,
             http_options=types.HttpOptions(timeout=timeout_ms),
@@ -169,6 +171,7 @@ def build_checklist(client, model: str, refs: list[dict[str, Any]], month: str, 
         model=model,
         contents=CHECKLIST_INSTRUCTIONS.format(language=language, days=lines, month=month or "unknown"),
         config=types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_level="minimal"),
             response_mime_type="application/json",
             max_output_tokens=1500,
             http_options=types.HttpOptions(timeout=timeout_ms),

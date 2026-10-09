@@ -3,6 +3,12 @@
 // the same language so Aura answers in it.
 
 export const LANGS = [
+  {code:"si",label:"සිංහල",locale:"si-LK",name:"Sinhala"},
+  {code:"ta",label:"தமிழ்",locale:"ta-LK",name:"Tamil"},
+  {code:"ko",label:"한국어",locale:"ko-KR",name:"Korean"},
+  {code:"hi",label:"हिन्दी",locale:"hi-IN",name:"Hindi"},
+  {code:"it",label:"Italiano",locale:"it-IT",name:"Italian"},
+  {code:"ar",label:"العربية",locale:"ar-SA",name:"Arabic"},
   { code: "en", label: "English", locale: "en-GB", name: "English" },
   { code: "zh", label: "中文", locale: "zh-CN", name: "Simplified Chinese" },
   { code: "es", label: "Español", locale: "es-ES", name: "Spanish" },
@@ -142,3 +148,22 @@ export function formatTime(ts, locale) {
     return "";
   }
 }
+// Additional conversation languages; catalogue content retains its source text.
+const additionalCopy = {
+ si: ["නව කතාබහ", "නව ගමන", "සංචාර පැකේජ", "අයවැය", "ගමන් මලු", "ගමන් සැලැස්ම", "ආපසු", "ඔබගේ ගමන ගැන කියන්න…"],
+ ta: ["புதிய உரையாடல்", "புதிய பயணம்", "பயணத் தொகுப்புகள்", "செலவுத் திட்டம்", "பயணப் பொருட்கள்", "பயணத் திட்டம்", "திரும்பு", "உங்கள் பயணத்தைப் பற்றி சொல்லுங்கள்…"],
+ ko: ["새 대화", "새 여행", "여행 상품", "예산", "짐 목록", "여행 일정", "뒤로", "여행 계획을 알려 주세요…"],
+ hi: ["नई बातचीत", "नई यात्रा", "यात्रा पैकेज", "बजट", "सामान सूची", "यात्रा कार्यक्रम", "वापस", "अपनी यात्रा के बारे में बताएं…"],
+ it: ["Nuova chat", "Nuovo viaggio", "Pacchetti", "Budget", "Bagagli", "Itinerario", "Indietro", "Raccontaci il tuo viaggio…"],
+ ar: ["محادثة جديدة", "رحلة جديدة", "باقات السفر", "الميزانية", "قائمة الأمتعة", "برنامج الرحلة", "رجوع", "أخبرنا عن رحلتك…"],
+};
+for (const [code, values] of Object.entries(additionalCopy)) {
+ I18N[code] = {...I18N.en, ...Object.fromEntries(["newChat","newTrip","packages","budget","packing","itinerary","back","placeholder"].map((key,i)=>[key,values[i]]))};
+}
+
+Object.assign(I18N.ko, {
+ headline:"오늘은 어디로 떠나 볼까요?",sub:cur=>`저는 스리랑카 북부 여행을 안내하는 Aura입니다. 여행 아이디어를 선택하거나 꿈꾸는 여행을 알려 주세요. LKR와 ${cur || "선택한 통화"}로 가격을 안내합니다.`,
+ fine:"가격은 LKR와 대략적인 환산 금액으로 표시됩니다. 결제는 LKR로 진행됩니다.",pPackages:"모든 여행 상품과 가격을 보여 주세요",pBudget:"예산에 맞는 여행 상품을 찾아 주세요",pPacking:"스리랑카 북부 여행 준비물 목록을 만들어 주세요",pItinerary:"맞춤 여행 일정을 만들어 주세요",
+ replies:["혼자","커플","아이 동반 가족","친구","옵션 보기","더 저렴하게"],
+ cards:[["자프나 문화유산 여행","사원, 요새와 옛 거리를 둘러보는 4일 일정","자프나 문화유산과 문화를 둘러보는 4일 여행을 계획해 주세요"],["로맨틱한 휴식 여행","둘을 위한 일몰 명소와 조용한 숙소","신혼여행을 위한 로맨틱한 일몰 여행을 찾아 주세요"],["델프트섬 탐험","야생 조랑말, 산호 담장과 북부 해안","델프트섬과 북부 해안을 탐험하고 싶어요"],["자프나 미식 여행","게 카레, 향신료 시장과 현지 음식","자프나 게 요리와 향신료를 즐길 수 있는 미식 여행을 보여 주세요"],["홍학과 야생동물 관찰","조류 관찰과 야생동물 여행","조류 관찰을 좋아해요. 어떤 야생동물 여행이 있나요?"],["예산에 맞는 여행","예산에 맞는 여행 상품 찾기","예산에 맞는 여행 상품을 찾아 주세요"]]
+});
